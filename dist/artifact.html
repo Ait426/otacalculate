@@ -303,6 +303,7 @@ td.num{font-family:"IBM Plex Mono",ui-monospace,monospace;font-variant-numeric:t
 
 <div id="chtabs-calc"></div>
 <div id="chNote"></div>
+<div id="shareNote"></div>
 
 <div class="modes" role="group" aria-label="계산 방향">
   <button id="mRev" aria-pressed="true">목표 입금가 → CMS</button>
@@ -365,7 +366,7 @@ td.num{font-family:"IBM Plex Mono",ui-monospace,monospace;font-variant-numeric:t
   <span><b>하한</b> 입금가 40,000원 · <b>목표</b> 토 65,000 / 일·월 43,000~46,000</span>
   <span><b>검증</b> 실제 예약 5건 원 단위 일치 · 정산 대조 보수 18% 15/15 · 노출가 3점 실측 08-23</span>
   <span><b>중복 규칙</b> 시즌 1개 · 타겟팅 카테고리당 1개 · 알뜰 무제한</span>
-  <span><b>설정 저장</b> 이 브라우저에만 남습니다 · 서버로 보내지 않고 다른 PC와도 공유되지 않습니다</span>
+  <span><b>설정 저장</b> 이 브라우저에만 남습니다 · 다른 사람에게 보여주려면 <b>링크 복사</b>를 쓰세요</span>
 </div>
 </div>
 </div>
@@ -966,6 +967,11 @@ GROUPS.forEach(g => {
   }
 });
 
+/* 링크에 담을 때 "기본값과 다른 것"만 골라내려면 원래 값을 알아야 한다.
+   저장본이나 링크가 state 를 덮어쓰기 전인 지금 떠 둔다. */
+const DEFAULT_STATE = JSON.parse(JSON.stringify(state));
+const DEFAULT_COMM = JSON.parse(JSON.stringify(COMM));
+
 const won = n => Math.round(n).toLocaleString("ko-KR");
 const ceilTo = (n,u) => Math.ceil(n/u)*u;
 const num = s => Number(String(s).replace(/[^\d.-]/g,"")) || 0;
@@ -1054,6 +1060,115 @@ function restoreSaved(){
     document.getElementById("tgt").value = d.tgt.toLocaleString("ko-KR");
 
   paintMode();
+  return true;
+}
+
+/* ── 설정 링크 ─────────────────────────────
+   "이 조합 보세요" 하고 주소를 던지는 용도. 기본값과 다른 것만 담는다 —
+   전부 담으면 주소가 1,700자를 넘어가서 붙여넣기가 곤란해진다.
+   받은 사람이 그 주소로 열면 같은 조합으로 맞춰진다. */
+function toB64url(str){
+  const bytes = new TextEncoder().encode(str);
+  let bin = "";
+  bytes.forEach(b => bin += String.fromCharCode(b));
+  return btoa(bin).split("+").join("-").split("/").join("_").split("=").join("");
+}
+function fromB64url(str){
+  let t = str.split("-").join("+").split("_").join("/");
+  while (t.length % 4) t += "=";
+  const bin = atob(t);
+  return new TextDecoder().decode(Uint8Array.from(bin, c => c.charCodeAt(0)));
+}
+
+function packSettings(){
+  const d = {};
+  const put = (slot, key, val) => { (d[slot] = d[slot] || {})[key] = val; };
+  GROUPS.forEach(g => {
+    if (g.mode !== "multi" && state[g.key].sel !== DEFAULT_STATE[g.key].sel)
+      put("sel", g.key, state[g.key].sel);
+    g.items.forEach(it => {
+      const cur = state[it.id], def = DEFAULT_STATE[it.id];
+      if (!cur || !def) return;
+      if ("on" in cur && cur.on !== def.on) put("on", it.id, cur.on);
+      if (cur.pct !== def.pct) put("pct", it.id, cur.pct);
+    });
+  });
+  ["agp", "agxOn", "agx", "sl"].forEach(k => {
+    if (COMM[k] !== DEFAULT_COMM[k]) put("c", k, COMM[k]);
+  });
+  if (useMeas) d.m = 1;
+  if (mode !== "reverse") d.md = mode;
+  if (roundUnit !== 5000) d.r = roundUnit;
+  const t = num(document.getElementById("tgt").value);
+  if (t > 0) d.t = t;
+  return d;
+}
+
+/* 링크로 받은 값도 저장본과 똑같이 하나씩 검사해서 받는다.
+   남이 만든 주소를 그대로 믿고 화면에 꽂으면 안 되기 때문. */
+function unpackSettings(d){
+  if (!d || typeof d !== "object") return false;
+  if (d.sel) Object.keys(d.sel).forEach(k => {
+    const g = GROUPS.find(x => x.key === k);
+    if (g && g.items.some(it => it.id === d.sel[k])) state[k].sel = d.sel[k];
+  });
+  if (d.on) Object.keys(d.on).forEach(id => {
+    if (state[id] && "on" in state[id] && typeof d.on[id] === "boolean") state[id].on = d.on[id];
+  });
+  if (d.pct) Object.keys(d.pct).forEach(id => {
+    const v = d.pct[id];
+    if (state[id] && typeof v === "number" && v >= 0 && v <= 99) state[id].pct = v;
+  });
+  if (d.c) {
+    if ([0, 8, 17].includes(d.c.agp)) COMM.agp = d.c.agp;
+    if (typeof d.c.agxOn === "boolean") COMM.agxOn = d.c.agxOn;
+    if (typeof d.c.agx === "number" && d.c.agx >= 1 && d.c.agx <= 40) COMM.agx = d.c.agx;
+    if ([0, 7.2, 10.3].includes(d.c.sl)) COMM.sl = d.c.sl;
+  }
+  useMeas = d.m === 1;
+  if (d.md === "forward" || d.md === "reverse") mode = d.md;
+  if ([100, 1000, 5000].includes(d.r)) roundUnit = d.r;
+  if (typeof d.t === "number" && d.t > 0)
+    document.getElementById("tgt").value = d.t.toLocaleString("ko-KR");
+  paintMode();
+  return true;
+}
+
+function shareUrl(){
+  return location.origin + location.pathname + "?s=" + toB64url(JSON.stringify(packSettings()));
+}
+
+function noteShared(){
+  const el = document.getElementById("shareNote");
+  if (!el) return;
+  el.innerHTML = `<div class="call ok"><span class="lbl">공유된 설정을 불러왔습니다</span>
+    링크에 담겨 있던 조합으로 맞춰 놓았습니다. 이대로 두면 이 브라우저에 저장되고,
+    원래대로 되돌리려면 아래 <b>설정 초기화</b>를 누르세요.</div>`;
+}
+
+/* 주소에 설정이 실려 있으면 저장본보다 먼저 적용한다 (링크가 이긴다) */
+function restoreFromUrl(){
+  let raw = null;
+  try {
+    raw = new URLSearchParams(location.search).get("s");
+  } catch (e) {
+    console.warn("[링크] 주소를 읽지 못했습니다:", e);
+    return false;
+  }
+  if (!raw) return false;
+  try {
+    if (!unpackSettings(JSON.parse(fromB64url(raw)))) return false;
+  } catch (e) {
+    console.warn("[링크] 공유된 설정을 해독하지 못했습니다. 저장본으로 시작합니다:", e);
+    return false;
+  }
+  // 주소창은 정리한다. 새로고침할 때마다 링크 설정으로 되돌아가면 헷갈린다
+  try {
+    history.replaceState(null, "", location.pathname + location.hash);
+  } catch (e) {
+    console.warn("[링크] 주소를 정리하지 못했습니다:", e);
+  }
+  noteShared();
   return true;
 }
 
@@ -1386,6 +1501,31 @@ function renderChips(){
   };
   c.appendChild(r);
 
+  // 지금 조합이 담긴 주소를 복사한다
+  const sh = document.createElement("button");
+  sh.textContent = "링크 복사";
+  sh.title = "지금 설정이 담긴 주소를 복사합니다. 받은 사람이 열면 같은 조합으로 보입니다";
+  sh.onclick = () => {
+    let url;
+    try {
+      url = shareUrl();
+    } catch (e) {
+      console.error("[링크] 주소를 만들지 못했습니다:", e);
+      alert("링크를 만들지 못했습니다. 콘솔을 확인해 주세요.");
+      return;
+    }
+    const flash = t => { sh.textContent = t; setTimeout(() => { sh.textContent = "링크 복사"; }, 1600); };
+    if (!navigator.clipboard) {              // http 나 옛 브라우저
+      window.prompt("아래 주소를 복사해서 전달하세요", url);
+      return;
+    }
+    navigator.clipboard.writeText(url).then(() => flash("복사됨"), e => {
+      console.warn("[링크] 클립보드가 막혀 있어 직접 복사하도록 안내합니다:", e);
+      window.prompt("아래 주소를 복사해서 전달하세요", url);
+    });
+  };
+  c.appendChild(sh);
+
   // 저장된 설정 지우기 — 되돌릴 수 없으니 확인을 한 번 받는다
   const rs = document.createElement("button");
   rs.textContent = "설정 초기화";
@@ -1478,6 +1618,7 @@ function renderMeas(){
 }
 
 restoreSaved();                       // 저장본이 있으면 상태부터 되돌리고
+restoreFromUrl();                     // 주소에 설정이 실려 있으면 그쪽이 이긴다
 renderComm();                         // 그 값으로 화면을 그린다
 renderChips();
 recalc();
