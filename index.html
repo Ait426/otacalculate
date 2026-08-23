@@ -90,6 +90,7 @@
   <span><b>하한</b> 입금가 40,000원 · <b>목표</b> 토 65,000 / 일·월 43,000~46,000</span>
   <span><b>검증</b> 실제 예약 5건 원 단위 일치 · 정산 대조 보수 18% 15/15 · 노출가 3점 실측 08-23</span>
   <span><b>중복 규칙</b> 시즌 1개 · 타겟팅 카테고리당 1개 · 알뜰 무제한</span>
+  <span><b>설정 저장</b> 이 브라우저에만 남습니다 · 서버로 보내지 않고 다른 PC와도 공유되지 않습니다</span>
 </div>
 </div>
 
@@ -214,6 +215,93 @@ GROUPS.forEach(g => {
 const won = n => Math.round(n).toLocaleString("ko-KR");
 const ceilTo = (n,u) => Math.ceil(n/u)*u;
 const num = s => Number(String(s).replace(/[^\d.-]/g,"")) || 0;
+
+/* ── 설정 저장 ─────────────────────────────
+   이 브라우저의 localStorage 에만 남는다. 서버로 보내지 않고, 다른 PC 와도
+   공유되지 않는다. 사생활 보호 모드나 용량 초과로 실패할 수 있으므로
+   실패해도 계산은 그대로 되도록 두고 콘솔에만 남긴다.
+   STORE_V 를 올리면 예전 저장본은 버려진다 (구조가 바뀌었을 때 쓴다). */
+const STORE_KEY = "ota-console:calc";
+const STORE_V = 1;
+
+let saveTimer = null;
+function save(){                      // 입력할 때마다 쓰지 않도록 묶어서 쓴다
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(writeStore, 250);
+}
+function writeStore(){
+  try {
+    localStorage.setItem(STORE_KEY, JSON.stringify({
+      v: STORE_V,
+      promo: state,
+      comm: COMM,
+      useMeas: useMeas,
+      mode: mode,
+      tgt: num(document.getElementById("tgt").value),
+      roundUnit: roundUnit,
+    }));
+  } catch (e) {
+    console.warn("[설정 저장 실패] 계산에는 영향이 없습니다:", e);
+  }
+}
+
+function readStore(){
+  let raw;
+  try {
+    raw = localStorage.getItem(STORE_KEY);
+  } catch (e) {
+    console.warn("[설정 읽기 실패] 기본값으로 시작합니다:", e);
+    return null;
+  }
+  if (!raw) return null;
+  try {
+    const d = JSON.parse(raw);
+    if (!d || d.v !== STORE_V) {
+      console.info("[설정] 저장본 구조가 달라 기본값으로 시작합니다.");
+      return null;
+    }
+    return d;
+  } catch (e) {
+    console.warn("[설정 파싱 실패] 손상된 저장본을 버립니다:", e);
+    try { localStorage.removeItem(STORE_KEY); } catch (e2) { console.warn("[설정 삭제 실패]", e2); }
+    return null;
+  }
+}
+
+/* 저장본을 지금 코드에 맞는 값만 골라 반영한다.
+   프로모션 목록이 바뀌어 사라진 id 가 들어 있어도 조용히 무시한다. */
+function restoreSaved(){
+  const d = readStore();
+  if (!d) return false;
+
+  if (d.promo) GROUPS.forEach(g => {
+    const gs = d.promo[g.key];
+    if (gs && typeof gs.sel === "string" && g.items.some(it => it.id === gs.sel))
+      state[g.key].sel = gs.sel;
+    g.items.forEach(it => {
+      const s = d.promo[it.id];
+      if (!s || !state[it.id]) return;
+      if (typeof s.on === "boolean" && "on" in state[it.id]) state[it.id].on = s.on;
+      if (typeof s.pct === "number" && s.pct >= 0 && s.pct <= 99) state[it.id].pct = s.pct;
+    });
+  });
+
+  if (d.comm) {
+    if ([0, 8, 17].includes(d.comm.agp)) COMM.agp = d.comm.agp;
+    if (typeof d.comm.agxOn === "boolean") COMM.agxOn = d.comm.agxOn;
+    if (typeof d.comm.agx === "number" && d.comm.agx >= 1 && d.comm.agx <= 40) COMM.agx = d.comm.agx;
+    if ([0, 7.2, 10.3].includes(d.comm.sl)) COMM.sl = d.comm.sl;
+  }
+
+  if (typeof d.useMeas === "boolean") useMeas = d.useMeas;
+  if (d.mode === "reverse" || d.mode === "forward") mode = d.mode;
+  if ([100, 1000, 5000].includes(d.roundUnit)) roundUnit = d.roundUnit;
+  if (typeof d.tgt === "number" && d.tgt > 0)
+    document.getElementById("tgt").value = d.tgt.toLocaleString("ko-KR");
+
+  paintMode();
+  return true;
+}
 
 /* ── 실측 ──────────────────────────────────
    2026-08-23 조회. 스탠다드 Room Only, 소비자 페이지 vs 포털 ARI 캘린더.
@@ -370,6 +458,7 @@ function renderComm(){
 
 /* ── 렌더: 결과 ── */
 function recalc(){
+  save();                             // 바뀐 설정을 이 브라우저에 남긴다
   const s = sigma(), c = commission(), k = coef();
   document.getElementById("sigTally").textContent = "Σ " + theorySigma() + "%"
     + (useMeas ? " · 미사용" : "");
@@ -542,15 +631,38 @@ function renderChips(){
     renderChips(); recalc();
   };
   c.appendChild(r);
+
+  // 저장된 설정 지우기 — 되돌릴 수 없으니 확인을 한 번 받는다
+  const rs = document.createElement("button");
+  rs.textContent = "설정 초기화";
+  rs.title = "이 브라우저에 저장된 프로모션·보수 설정을 지우고 기본값으로 되돌립니다";
+  rs.onclick = () => {
+    if (!confirm("이 브라우저에 저장된 설정을 지우고 기본값으로 되돌립니다. 계속할까요?")) return;
+    clearTimeout(saveTimer);          // 지운 직후 예약된 저장이 되살리지 못하게
+    try {
+      localStorage.removeItem(STORE_KEY);
+    } catch (e) {
+      console.error("[설정 초기화 실패]", e);
+      alert("설정을 지우지 못했습니다. 브라우저의 저장소 설정을 확인해 주세요.");
+      return;
+    }
+    location.reload();
+  };
+  c.appendChild(rs);
 }
 
 /* ── 모드 ── */
+/* 모드에 따른 라벨만 칠한다. 입력값은 건드리지 않는다 —
+   저장된 목표액을 되돌릴 때 setMode 가 값을 덮어쓰면 안 되기 때문. */
+function paintMode(){
+  document.getElementById("mRev").setAttribute("aria-pressed", String(mode === "reverse"));
+  document.getElementById("mFwd").setAttribute("aria-pressed", String(mode === "forward"));
+  document.getElementById("tgtLabel").textContent = mode === "reverse" ? "목표 입금가" : "CMS 설정값";
+  document.getElementById("bigCap").textContent = mode === "reverse" ? "필요 CMS 설정값" : "예상 입금가";
+}
 function setMode(m){
   mode = m;
-  document.getElementById("mRev").setAttribute("aria-pressed", String(m === "reverse"));
-  document.getElementById("mFwd").setAttribute("aria-pressed", String(m === "forward"));
-  document.getElementById("tgtLabel").textContent = m === "reverse" ? "목표 입금가" : "CMS 설정값";
-  document.getElementById("bigCap").textContent = m === "reverse" ? "필요 CMS 설정값" : "예상 입금가";
+  paintMode();
   document.getElementById("tgt").value = (m === "reverse" ? 45000 : 160000).toLocaleString("ko-KR");
   renderChips(); recalc();
 }
@@ -611,7 +723,8 @@ function renderMeas(){
     useMeas ? "Σ 54.37% 적용 중" : "Σ 54.37%";
 }
 
-renderComm();
+restoreSaved();                       // 저장본이 있으면 상태부터 되돌리고
+renderComm();                         // 그 값으로 화면을 그린다
 renderChips();
 recalc();
 
