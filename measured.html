@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#ECEFEA" media="(prefers-color-scheme:light)">
+<meta name="theme-color" content="#0C1214" media="(prefers-color-scheme:dark)">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="assets/base.css">
+<meta name="description" content="노출가 3점 실측, 세전 할인 규칙 확정, 쿠폰 발견, 검증 경로">
+<title>실측 기록 · 평택 스테이 호텔</title>
+</head>
+<body>
+<script src="assets/channels.js"></script>
+<script src="assets/shell.js"></script>
+
+<main class="doc">
+  <h1>실측 기록</h1>
+  <p class="lede">계산이 맞는지 확인한 것들. 추정은 없습니다 — 전부 화면에서 읽은 숫자이고,
+    출처와 조회일을 같이 적었습니다. 확인 못 한 건 맨 아래에 따로 모았습니다.</p>
+
+  <h2>노출가 3점 테스트 <span class="badge live">2026-08-23</span></h2>
+  <p class="sub">CMS를 건드리지 않고 검증했습니다. 10/28·10/30·10/31이 이미 CMS 값이 다르고
+    (160,000 / 190,000 / 220,000) 같은 주라 프로모션 조건이 같아서, 그 자체가 3점 테스트가 됩니다.</p>
+
+  <h3>결정적 증거 — 메가세일 할인액</h3>
+  <section class="card"><div class="scroll"><table id="megaTable"><thead></thead><tbody></tbody></table></div></section>
+  <div class="call ok">
+    <span class="lbl">이게 증명하는 것</span>
+    메가세일 10%가 <b>세전 금액</b>에 정확히 붙습니다. 세 날짜 모두 <b>원 단위까지</b> 맞았어요. 따라서 —
+    <br>① 아고다 할인은 세전에 붙고 세금 배수는 정확히 <b>1.1</b>이다.
+    <br>② 할인의 기준값은 <b>Room Only 요금</b>이다. 조식 요금이 아니다.
+  </div>
+
+  <h3>노출가 — 예측 vs 실측</h3>
+  <section class="card"><div class="scroll"><table id="dispTable"><thead></thead><tbody></tbody></table></div></section>
+  <div class="call ok">
+    <span class="lbl">선형이다</span>
+    세 점 모두 오차 <b>±1원</b>:
+    <code class="mono">원래요금(세전) = 0.458352 × (CMS ÷ 1.1) − 343</code>
+    <br>노출가는 CMS에 정확히 비례합니다. 계산기 구조 자체는 맞습니다.
+  </div>
+
+  <h2>다만 두 가지가 남았습니다</h2>
+
+  <h3>① 지역 타겟팅 — 실제 예약으로 확인됨 <span class="badge live">해결</span></h3>
+  <div id="evidence"></div>
+
+  <div class="call warn">
+    <span class="lbl">① 한국 IP에서는 지역 프로모션이 안 보인다</span>
+    실측 Σ 54.37%는 MG 35 + 메가세일 10 + 얼리버드 10 = <b>55%</b>와 0.63%p 차이입니다.
+    즉 International Rate가 빠진 값이에요. <b>한국 IP에서 조회했기 때문</b>으로 보입니다.
+    아고다는 접속 국가로 노출가를 정하고, URL을 <code class="mono">en-us</code>로 바꿔도
+    <code class="mono">ko-kr</code>로 되돌아옵니다 — <b>국내에서는 확인할 방법이 없습니다.</b>
+    <br><br>다만 <b>위 예약이 답을 줬습니다</b> — 미국 손님에게는 US (IP only) 10%가 실제로 붙습니다.
+    한국에서 본 54.37%는 "국내 손님이 보는 값"이고, 외국 손님은 Σ가 10%p 더 높습니다.
+    평택은 외국인 비중이 높은 상권이니 <b>실제 입금가는 Σ 65% 쪽에 가깝다고 보는 게 안전합니다.</b>
+    남은 건 국내 대 해외 예약 비율뿐입니다.
+  </div>
+
+  <div class="call bad">
+    <span class="lbl">② 쿠폰(AGODA_SPONSORED) — Σ에 없는 추가 차감</span>
+    노출가에서 한 번 더 깎입니다. 이름상 아고다가 자기 돈으로 얹는 쿠폰으로 보이지만
+    <b>정산서로 확인하지 않았습니다.</b> 우리 부담이면 CMS의 6~9%가 더 빠집니다.
+  </div>
+  <section class="card"><div class="scroll"><table id="coupTable"><thead></thead><tbody></tbody></table></div></section>
+
+  <h2>지금까지 검증된 것</h2>
+  <div class="tiles">
+    <div class="tile ok"><div class="k">입금가 공식</div><div class="v">5 / 5</div>
+      <div class="n">실제 예약 5건 원 단위 일치. 곱셈 모델은 폐기</div></div>
+    <div class="tile ok"><div class="k">보수 18%</div><div class="v">15 / 15</div>
+      <div class="n">정산 거래 30행 · 예약 20건 대조</div></div>
+    <div class="tile ok"><div class="k">Maximum Gain 35%</div><div class="v">28일</div>
+      <div class="n">날짜 전수 + 예약 7건. 값이 안 흔들림</div></div>
+    <div class="tile ok"><div class="k">노출가 계수</div><div class="v">±1원</div>
+      <div class="n">3개 날짜 선형 적합 오차</div></div>
+  </div>
+
+  <h2>검증 경로 — 다음에 또 볼 때</h2>
+  <p class="sub">같은 걸 다시 확인하려면 이 순서로. 함정 칸은 실제로 한 번씩 빠졌던 것들입니다.</p>
+  <section class="card"><div class="scroll"><table>
+    <thead><tr><th>보려는 것</th><th>어디서</th><th>방법</th><th>함정</th></tr></thead>
+    <tbody>
+      <tr><td>아고다가 든 기준요금</td><td>포털 ARI 캘린더</td>
+        <td class="mono" style="font-size:11.5px">/mldc/ko-kr/app/ari/calendar/5834782<br>?startDate=2026-10-28&amp;endDate=2026-10-28</td>
+        <td>객실 필터 기본값이 1개다. 전체 선택 후 적용해야 7개가 다 보인다</td></tr>
+      <tr><td>소비자 노출가</td><td>아고다 소비자 페이지</td>
+        <td class="mono" style="font-size:11.5px">agoda.com/ko-kr/pyeongtaek-stay-hotel/…<br>?checkIn=…&amp;los=1&amp;adults=2&amp;finalPriceView=1</td>
+        <td style="background:var(--warn-soft)"><b>객실 그리드는 크롬 탭이 화면 앞에 있어야 렌더링된다.</b>
+          백그라운드면 DOM이 비어서 '0건'으로 오독한다. 스크린샷·클릭으로 탭을 깨운 직후에 읽어야 한다</td></tr>
+      <tr><td>프로모션 실제 적용 내역</td><td>포털 예약 상세</td><td>예약 목록 → 개별 예약 → 프로모션 내역</td>
+        <td>실제 예약이 있어야 한다. 가상 조회로는 안 된다</td></tr>
+      <tr><td>CMS가 보낸 값</td><td>WINGSCMS 요금관리</td><td class="mono" style="font-size:11.5px">cm03_0200 → 상품그룹 행</td>
+        <td>아고다 요금 입력칸은 disabled다. 값은 요금세트가 정한다</td></tr>
+    </tbody>
+  </table></div></section>
+
+  <h2>아직 확인 못 한 것</h2>
+  <ul class="todo">
+    <li>국내 예약 대 해외 예약 비율 — Σ 54% 대 65% 중 어느 쪽으로 잡을지 결정하는 값. 예약 목록의 투숙객 거주 국가로 집계.</li>
+    <li><b>쿠폰(AGODA_SPONSORED) 부담 주체</b> — 다음 정산서에서 확인.</li>
+    <li>보수 38% 실제 정산 여부 (8/28~9/1 투숙분), 보수 20%(AGX 2%) 실측 — 9월 초 정산서.</li>
+    <li>AGX 고급옵션 '마감 임박 예약 수수료 2배' on/off — 켜져 있으면 임박 예약 보수 +2%p.</li>
+    <li>아고다 인텔리전스 프로그램 수수료 할인율 — 보수를 낮추는 유일한 경로.</li>
+    <li>AGP 8% → 17% 전환 조건 — 보수의 절반을 차지하는 가장 큰 레버.</li>
+    <li>프로모션 할인율의 상·하한 — 포털에 표기 없음. 실사용 범위는 5~45%.</li>
+    <li>미매핑 객실 96개 전체 목록과 삭제 요청.</li>
+  </ul>
+</main>
+
+<script>
+(function () {
+  const e = CHANNELS.agoda.bookingEvidence;
+  document.getElementById("evidence").innerHTML = `
+    <div class="tiles">
+      <div class="tile"><div class="k">예약 번호</div><div class="v" style="font-size:16px">${e.id}</div>
+        <div class="n">투숙객 거주 국가 <b>${e.guestCountry}</b></div></div>
+      <div class="tile"><div class="k">리드타임</div><div class="v">${e.leadDays}일</div>
+        <div class="n">${e.booked} 예약 → ${e.stay} 투숙</div></div>
+      <div class="tile"><div class="k">기준 판매 요금</div><div class="v">${WON(e.baseRate)}</div>
+        <div class="n">${e.plan}</div></div>
+    </div>
+    <div class="call ok"><span class="lbl">붙은 프로모션</span>
+      ${e.promos.map(p => `<code class="mono">${p}</code>`).join(" &nbsp;+&nbsp; ")}
+      <br><br>${e.note}</div>`;
+})();
+
+const M = [
+  { d: "10/28 수", cms: 160000, org: 66327, mega: 14545, coup: 9594 },
+  { d: "10/30 금", cms: 190000, org: 78826, mega: 17273, coup: 12078 },
+  { d: "10/31 토", cms: 220000, org: 91328, mega: 20000, coup: 14616 },
+];
+const fill = (id, head, rows) => {
+  const t = document.getElementById(id);
+  t.querySelector("thead").innerHTML = "<tr>" + head.map(h => `<th>${h}</th>`).join("") + "</tr>";
+  t.querySelector("tbody").innerHTML = rows.map(r => "<tr>" + r.join("") + "</tr>").join("");
+};
+
+fill("megaTable",
+  ["날짜", "CMS (세금포함)", "세전 = CMS ÷ 1.1", "메가세일 실측", "예측 = 세전 × 10%", "판정"],
+  M.map(m => {
+    const pre = m.cms / 1.1, pred = pre * 0.10, ok = Math.abs(m.mega - pred) < 1;
+    return [`<td>${m.d}</td>`, `<td class="mono">${WON(m.cms)}</td>`, `<td class="mono">${WON(pre)}</td>`,
+      `<td class="mono"><b>${WON(m.mega)}</b></td>`, `<td class="mono">${WON(pred)}</td>`,
+      `<td style="color:${ok ? "var(--ok)" : "var(--bad)"};font-weight:600">${ok ? "원 단위까지 일치" : "불일치"}</td>`];
+  }));
+
+fill("dispTable",
+  ["날짜", "CMS", "계산기 Σ65%", "실측 노출가", "차이", "실측 Σ"],
+  M.map(m => {
+    const real = Math.round(m.org * 1.1), calc = Math.round(m.cms * 0.35), sig = (1 - real / m.cms) * 100;
+    return [`<td>${m.d}</td>`, `<td class="mono">${WON(m.cms)}</td>`, `<td class="mono">${WON(calc)}</td>`,
+      `<td class="mono"><b>${WON(real)}</b></td>`,
+      `<td class="mono" style="color:var(--warn)">+${WON(real - calc)}</td>`,
+      `<td class="mono">${sig.toFixed(3)}%</td>`];
+  }));
+
+fill("coupTable",
+  ["날짜", "원래 요금(세전)", "쿠폰 할인", "할인율", "표시가", "1박 총액(세금포함)"],
+  M.map(m => {
+    const disp = m.org - m.coup;
+    return [`<td>${m.d}</td>`, `<td class="mono">${WON(m.org)}</td>`,
+      `<td class="mono" style="color:var(--bad)">−${WON(m.coup)}</td>`,
+      `<td class="mono">−${Math.round(m.coup / m.org * 100)}%</td>`,
+      `<td class="mono">${WON(disp)}</td>`, `<td class="mono"><b>${WON(disp * 1.1)}</b></td>`];
+  }));
+</script>
+</body>
+</html>

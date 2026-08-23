@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#ECEFEA" media="(prefers-color-scheme:light)">
+<meta name="theme-color" content="#0C1214" media="(prefers-color-scheme:dark)">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="assets/base.css">
+<meta name="description" content="채널별 CMS 요금세트와 상품 매핑, 아고다 기준요금 실측표">
+<title>요금표 · 평택 스테이 호텔</title>
+</head>
+<body>
+<script src="assets/channels.js"></script>
+<script src="assets/shell.js"></script>
+
+<main class="doc">
+  <h1>요금표</h1>
+  <p class="lede">CMS가 각 채널에 무엇을 보내고 있는지. 아고다는 채널이 실제로 들고 있는 값까지
+    대조했고, 나머지는 상품 매핑과 요금세트만 확인한 상태입니다.</p>
+
+  <div id="chtabs"></div>
+  <div id="chBody"></div>
+
+  <h2>아고다 기준요금 전수 — 2026-10-28</h2>
+  <p class="sub">포털 ARI 캘린더 실측. 아고다가 실제로 들고 있는 값이며 세금·봉사료 포함가입니다.</p>
+  <section class="card"><div class="scroll"><table id="roomTable">
+    <thead></thead><tbody></tbody></table></div></section>
+
+  <div class="call bad">
+    <span class="lbl">조식이 룸온리보다 싸다</span>
+    7개 객실 <b>예외 없이</b> 조식 1인 = Room Only × <b>0.70</b>, 조식 2인 = × <b>0.72</b>입니다.
+    손으로 넣은 값이 아니라 규칙으로 걸린 값이에요. 조식을 주면서 요금은 30% 깎아 파는 구조라,
+    같은 Σ가 붙으면 <b>조식 상품이 먼저 입금가 하한을 깹니다.</b>
+  </div>
+
+  <h2>채널별 CMS — 같은 객실을 얼마에 보내고 있나</h2>
+  <p class="sub">스탠다드 기준, 2026-08-23 조회. 커미션과 프로모션 구조가 채널마다 달라서
+    CMS가 다른 건 정상입니다. 다만 차이가 이 정도로 벌어져 있다는 건 알고 있어야 합니다.</p>
+  <section class="card"><div class="scroll"><table id="cmpTable">
+    <thead></thead><tbody></tbody></table></div></section>
+  <p style="font-size:12.5px;color:var(--text-faint);max-width:70ch">
+    조식 상품은 별도 상품그룹으로 붙습니다 — 아고 조식 1인 112,000 / 2인 115,200 / 트립 조식 2인 170,000 (WEEK 기준).</p>
+
+  <h2>요금세트 — 채널마다 쓸 수 있는 게 다르다</h2>
+  <p class="sub">WINGSCMS 요금관리 화면의 상품그룹별 select 를 전수로 읽은 결과입니다.</p>
+  <section class="card"><div class="scroll"><table id="setTable">
+    <thead></thead><tbody></tbody></table></div></section>
+
+  <div class="call warn">
+    <span class="lbl">test 세트를 찾고 있었다면</span>
+    <b>아고다 채널에는 없습니다.</b> 부킹·히카리와 익스피디아 전용이에요.
+    그리고 요금관리 그리드에서 아고다 <b>요금 입력칸은 disabled</b>입니다 —
+    값은 요금세트가 정하므로, 특정 날짜만 바꾸려면 그 날짜의 세트를 바꿔야 합니다.
+    아고다에서 임시 요금을 걸려면 미사용 세트(W4 등)를 쓰거나 아고다용 세트를 새로 만드세요.
+  </div>
+
+  <h2>입금가 환산 — 지금 CMS로 얼마가 들어오나</h2>
+  <p class="sub">아고다 스탠다드 Room Only 기준. 보수 18% 적용. 하한은 40,000원입니다.</p>
+  <section class="card"><div class="scroll"><table id="payTable">
+    <thead></thead><tbody></tbody></table></div></section>
+  <p style="font-size:12.5px;color:var(--text-faint);max-width:70ch">
+    Σ 65%는 International Rate가 붙는 해외 손님, Σ 54.37%는 2026-08-23 한국 IP에서 실측한 값입니다.
+    어느 쪽이 실제 다수인지는 아직 판정 전이라 둘 다 적었습니다.</p>
+</main>
+
+<script>
+/* ── 채널 블록 ── */
+let CH = "agoda";
+function paintChannel() {
+  const c = CHANNELS[CH];
+  const prod = c.products.length
+    ? `<div class="scroll"><table><thead><tr><th>상품</th><th>요금제 ID</th><th>Room Only 대비</th></tr></thead>
+       <tbody>${c.products.map(p => `<tr><td>${p.name}</td>
+         <td class="mono">${p.id || "—"}</td>
+         <td class="mono">${p.ratio === null ? "미확인" : "× " + p.ratio.toFixed(2)}</td></tr>`).join("")}
+       </tbody></table></div>`
+    : "<p style='padding:16px'>상품 정보 없음</p>";
+
+  const todo = (c.todo || []).length
+    ? `<h3>확인해야 할 것</h3><ul class="todo">${c.todo.map(t => `<li>${t}</li>`).join("")}</ul>`
+    : "";
+
+  document.getElementById("chBody").innerHTML = `
+    <h2>${c.name} ${statusBadge(c.status)}</h2>
+    <p class="sub">${c.cmsGroups.join(" · ")}${c.propertyId ? " · 숙소 ID " + c.propertyId : ""} · ${c.asOf} 조회</p>
+    <div class="tiles">
+      <div class="tile"><div class="k">요금세트</div><div class="v">${c.rateSets.length}</div>
+        <div class="n">${c.rateSets.join(" · ")}</div></div>
+      <div class="tile"><div class="k">상품</div><div class="v">${c.products.length}</div>
+        <div class="n">CMS가 이 채널로 보내는 요금제</div></div>
+      <div class="tile ${c.status === "live" ? "ok" : ""}"><div class="k">보수</div>
+        <div class="v">${c.commission ? c.commission.total + "%" : "미확인"}</div>
+        <div class="n">${c.commission ? c.commission.parts.map(p => p.name + " " + p.cur).join(" + ") : "구조 파악 전"}</div></div>
+      <div class="tile"><div class="k">세금 처리</div>
+        <div class="v">${c.tax ? "× " + c.tax : "미확인"}</div>
+        <div class="n">${c.tax ? "할인은 세전에 붙는다" : "확인 전"}</div></div>
+    </div>
+    ${c.rateSetNote ? `<div class="call"><b>요금세트 메모</b> — ${c.rateSetNote}</div>` : ""}
+    <h3>상품 매핑</h3>
+    <section class="card">${prod}</section>
+    ${todo}`;
+}
+function mountTabs() {
+  renderChannelTabs("chtabs", CH, k => { CH = k; mountTabs(); paintChannel(); }, { allowPlanned: true });
+}
+mountTabs(); paintChannel();
+
+/* ── 객실 표 ── */
+(function () {
+  const rooms = CHANNELS.agoda.rooms;
+  const t = document.getElementById("roomTable");
+  t.querySelector("thead").innerHTML =
+    "<tr><th>객실</th><th>객실 ID</th><th>조식 1인</th><th>조식 2인</th><th>Room Only</th><th>조식1 ÷ RO</th><th>조식2 ÷ RO</th></tr>";
+  t.querySelector("tbody").innerHTML = rooms.map(r => `<tr>
+    <td>${r.name}</td><td class="mono" style="color:var(--text-faint)">${r.id}</td>
+    <td class="mono">${WON(r.bf1)}</td><td class="mono">${WON(r.bf2)}</td>
+    <td class="mono"><b>${WON(r.ro)}</b></td>
+    <td class="mono">${r.bf1 ? (r.bf1 / r.ro).toFixed(2) : "—"}</td>
+    <td class="mono">${(r.bf2 / r.ro).toFixed(2)}</td></tr>`).join("");
+})();
+
+/* ── 요금세트 표 ── */
+(function () {
+  const all = [...new Set(CHANNEL_ORDER.flatMap(k => CHANNELS[k].rateSets))];
+  const t = document.getElementById("setTable");
+  t.querySelector("thead").innerHTML =
+    "<tr><th>세트</th>" + CHANNEL_ORDER.map(k => `<th>${CHANNELS[k].name}</th>`).join("") + "</tr>";
+  t.querySelector("tbody").innerHTML = all.map(sName => {
+    const cells = CHANNEL_ORDER.map(k => {
+      const has = CHANNELS[k].rateSets.includes(sName);
+      return `<td style="text-align:center;color:${has ? "var(--ok)" : "var(--line)"}">${has ? "●" : "·"}</td>`;
+    }).join("");
+    const v = RATE_SET_VALUES[sName];
+    return `<tr><td class="mono"><b>${sName}</b>${v ? ` <span style="color:var(--text-faint);font-weight:400">${WON(v)}</span>` : ""}</td>${cells}</tr>`;
+  }).join("");
+})();
+
+/* ── 채널 비교 ── */
+(function () {
+  const t = document.getElementById("cmpTable");
+  const SETS = ["WEEK", "FRI", "SAT"];
+  const LBL = { WEEK: "WEEK (월~목)", FRI: "FRI (금)", SAT: "SAT (토)" };
+  const keys = Object.keys(CHANNEL_CMS).sort((a, b) => CHANNEL_CMS[a].WEEK - CHANNEL_CMS[b].WEEK);
+  t.querySelector("thead").innerHTML =
+    "<tr><th>채널</th>" + SETS.map(k => `<th>${LBL[k]}</th>`).join("") + "<th>아고다 대비</th></tr>";
+  const base = CHANNEL_CMS.agoda;
+  t.querySelector("tbody").innerHTML = keys.map(k => {
+    const c = CHANNEL_CMS[k], r = c.WEEK / base.WEEK;
+    const isA = k === "agoda";
+    return `<tr${isA ? ' style="background:var(--brass-soft)"' : ""}>
+      <td>${CHANNELS[k].name} ${isA ? "" : statusBadge(CHANNELS[k].status)}</td>
+      ${SETS.map(sk => `<td class="mono">${WON(c[sk])}</td>`).join("")}
+      <td class="mono" style="color:${r < 0.6 ? "var(--bad)" : (r < 0.85 ? "var(--warn)" : "var(--ok)")}">
+        ${(r * 100).toFixed(0)}%</td></tr>`;
+  }).join("");
+})();
+
+/* ── 입금가 환산 ── */
+(function () {
+  const a = CHANNELS.agoda, comm = a.commission.total / 100;
+  const t = document.getElementById("payTable");
+  t.querySelector("thead").innerHTML =
+    "<tr><th>요금세트</th><th>CMS</th><th>Σ65% 입금가</th><th>하한 대비</th><th>Σ54.37% 입금가</th><th>하한 대비</th></tr>";
+  t.querySelector("tbody").innerHTML = Object.entries(RATE_SET_VALUES).map(([k, cms]) => {
+    const cell = sig => {
+      const p = cms * (1 - sig / 100) * (1 - comm);
+      const gap = p - HOTEL.floor;
+      const col = gap < 0 ? "var(--bad)" : (gap < 5000 ? "var(--warn)" : "var(--ok)");
+      return [`<td class="mono">${WON(p)}</td>`,
+              `<td class="mono" style="color:${col}">${gap >= 0 ? "+" : ""}${WON(gap)}</td>`];
+    };
+    const [p65, g65] = cell(65), [p54, g54] = cell(54.37);
+    return `<tr><td class="mono"><b>${k}</b></td><td class="mono">${WON(cms)}</td>${p65}${g65}${p54}${g54}</tr>`;
+  }).join("");
+})();
+</script>
+</body>
+</html>

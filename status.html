@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#ECEFEA" media="(prefers-color-scheme:light)">
+<meta name="theme-color" content="#0C1214" media="(prefers-color-scheme:dark)">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="assets/base.css">
+<meta name="description" content="채널별 현재 설정 — 프로모션, 보수 구성, 점검 결과, 채널 확장 로드맵">
+<title>현재 설정 · 평택 스테이 호텔</title>
+</head>
+<body>
+<script src="assets/channels.js"></script>
+<script src="assets/shell.js"></script>
+
+<main class="doc">
+  <h1>현재 설정</h1>
+  <p class="lede">지금 무엇이 켜져 있고 무엇이 문제인지. 값은 <b>2026-08-23 조회</b> 기준이고,
+    사용자가 언제든 바꾸므로 쓰기 전에는 다시 읽어야 합니다.</p>
+
+  <div id="chtabs"></div>
+  <div id="chBody"></div>
+
+  <h2 id="agoda-promo">아고다 — 적용 중인 프로모션</h2>
+  <p class="sub">전체 51개 중 6개만 켜져 있습니다. 나머지 45개는 중지 상태.</p>
+  <section class="card"><div class="scroll"><table>
+    <thead><tr><th>프로모션</th><th>ID</th><th>종류</th><th>%</th><th>조건</th></tr></thead>
+    <tbody>
+      <tr><td><b>Maximum Gain</b> <span style="color:var(--text-faint)">= Beds Network</span></td><td class="mono">—</td><td>제휴망</td><td class="mono"><b>35</b></td>
+        <td>항상 얹힘. <b>끄는 게 아니라 Static 플랜과 택일</b>입니다 — on/off 토글은 없어요</td></tr>
+      <tr><td>International Rate</td><td class="mono">21</td><td>타겟팅 · 지역</td><td class="mono">10</td>
+        <td>해외 IP. 미국 IP면 US (IP only)로 <b>대체</b>됩니다</td></tr>
+      <tr><td>US (IP only)</td><td class="mono">5144</td><td>타겟팅 · 지역</td><td class="mono">10</td>
+        <td>미국 IP 접속자만. International Rate와 <b>택일</b>이지 중복이 아닙니다</td></tr>
+      <tr><td>얼리버드 - 2026년 7월</td><td class="mono">218671761</td><td>알뜰</td><td class="mono">10</td>
+        <td>리드타임 <b>6일 이상</b>일 때만 (5일은 미적용, 실측 확인)</td></tr>
+      <tr><td>메가 세일</td><td class="mono">2222</td><td>시즌</td><td class="mono">10</td>
+        <td><b>판매 기간</b> 기준 — 투숙일이 아닙니다. 8/22~8/31, 다음은 11/16~11/30</td></tr>
+      <tr><td>VIP 사전 판매 - 메가 세일</td><td class="mono">2221</td><td>시즌</td><td class="mono">5</td><td>11/12~11/15</td></tr>
+      <tr><td>24시간 한정 깜짝 할인</td><td class="mono">2223</td><td>시즌</td><td class="mono">10</td><td>11/27</td></tr>
+    </tbody>
+  </table></div></section>
+
+  <div class="call">
+    <span class="lbl">중복 규칙 — 개수가 아니라 카테고리를 센다</span>
+    아고다 포털 원문: <i>"알뜰 프로모션, 시즌 프로모션 1개, 그리고 각 타겟팅 프로모션 카테고리(예: 플랫폼, 멤버십)별
+    프로모션 1개와 함께 중복 적용될 수 있습니다."</i>
+    <br><br><code class="mono">Σ = MG 35 + 시즌(최대 1) + 타겟팅(카테고리당 1) + 알뜰(무제한)</code>
+    <br><br>시즌 프로모션을 세 개 켜도 예약엔 <b>하나만</b> 붙습니다. 그래서 겹쳐 켜는 게 공짜예요.
+    <b>위험한 건 알뜰뿐입니다</b> — 개수 제한이 없어서 얼리버드+마감임박+장기투숙을 다 켜면 25%p가 한꺼번에 빠집니다.
+  </div>
+
+  <h2>아고다 — 보수 구성</h2>
+  <section class="card"><div class="scroll"><table id="commTable"><thead></thead><tbody></tbody></table></div></section>
+  <div class="call warn">
+    <span class="lbl">AGX는 4%가 분기점</span>
+    슬라이더 범위는 <b>1~40%</b>이고 지금은 2%입니다. 순위 곡선을 전수로 읽어보면
+    0%→5위 / 1%→4위 / 2%→2위 / 3%→2위 / <b>4%→1위</b> / 6~40%→1위 —
+    <b>4%가 순위 1위의 최소값이고 그 위는 낭비</b>입니다. 2→4%는 1박당 1,710원이 더 나갑니다.
+  </div>
+
+  <h2>점검에서 걸린 것</h2>
+  <div class="tiles">
+    <div class="tile bad"><div class="k">조식이 룸온리보다 싸다</div><div class="v">0.70 / 0.72</div>
+      <div class="n">7개 객실 전부. 같은 Σ면 조식 상품이 먼저 하한을 깬다</div></div>
+    <div class="tile bad"><div class="k">미매핑 객실</div><div class="v">96 / 140</div>
+      <div class="n">매핑 44개. 남의 요금이 우리 페이지에 섞여 보인다</div></div>
+    <div class="tile warn"><div class="k">사진 태그 누락</div><div class="v">27 / 57</div>
+      <div class="n">디럭스 더블룸 16장 중 15장이 태그 없음</div></div>
+    <div class="tile warn"><div class="k">청결 점수</div><div class="v">7.2</div>
+      <div class="n">전체 7.7 · 위치 8.7이 최고, 청결이 최저</div></div>
+  </div>
+  <ul class="todo">
+    <li><b>조식 요금세트</b> — 조식 그룹의 1224 / 1231 컬럼 14칸이 비율 복사 후 수기 보정되지 않았습니다.</li>
+    <li><b>알뜰 프로모션 중복 정리</b> — 36개가 겹쳐 있습니다 (마감임박 6 / 맞춤형 6 / 장기투숙 7 / 주간숙박 5 / 월간숙박 5 / 얼리버드 3).</li>
+    <li><b>미매핑 96개</b> — 객실 매핑 → 기타 조치 → 매핑 문제 신고 → "보유하고 있지 않으므로 삭제". 일괄 처리가 없어 아고다 팀이 건별로 처리합니다.</li>
+    <li><b>최신 리뷰 미답변</b> — 답변이 컨텐츠 점수에 들어갑니다.</li>
+  </ul>
+
+  <h2>채널 확장 로드맵</h2>
+  <p class="sub">아고다에서 세운 구조를 그대로 다른 채널에 적용합니다.
+    각 채널마다 확인해야 할 것이 정해져 있고, 그게 채워지면 계산기가 열립니다.</p>
+  <div id="roadmap"></div>
+
+  <div class="call">
+    <span class="lbl">채널을 추가하는 법</span>
+    <code class="mono">assets/channels.js</code> 한 파일만 고치면 됩니다. 그 채널의
+    <code class="mono">status</code>를 <code class="mono">"live"</code>로 바꾸고
+    보수·세금·프로모션 구조를 채우면 계산기 탭이 활성화됩니다.
+    <b>모르는 값은 <code class="mono">null</code>로 두세요</b> — 추정치를 넣으면 틀린 답이 나갑니다.
+  </div>
+
+  <h2>사용자가 정한 선</h2>
+  <div class="call bad">
+    <ul style="margin:0;padding-left:18px">
+      <li>입금가 <b>40,000원 미만 절대 금지</b></li>
+      <li>토요일 65,000원 수준 / 일·월 43,000~46,000원</li>
+      <li>일요일 요금은 OCC를 보며 직접 조정 — 임의로 건드리지 않는다</li>
+      <li>돈에 영향이 가거나 되돌리기 어려운 조작은 화면만 준비하고 멈춘다. <b>버튼은 사용자가 누른다</b></li>
+    </ul>
+  </div>
+</main>
+
+<script>
+let CH = "agoda";
+function paintChannel() {
+  const c = CHANNELS[CH];
+  const todo = (c.todo || []).length
+    ? `<h3>계산기를 열려면 이것부터</h3><ul class="todo">${c.todo.map(t => `<li>${t}</li>`).join("")}</ul>`
+    : `<div class="call ok"><b>검증 완료</b> — 입금가 공식이 실제 예약·정산과 원 단위로 맞습니다.</div>`;
+  document.getElementById("chBody").innerHTML = `
+    <h2 id="${c.key}">${c.name} ${statusBadge(c.status)}</h2>
+    <p class="sub">${c.cmsGroups.join(" · ")} · ${c.asOf} 조회</p>
+    <div class="tiles">
+      <div class="tile ${c.sigmaTheory ? "" : ""}"><div class="k">Σ 프로모션</div>
+        <div class="v">${c.sigmaTheory ? c.sigmaTheory + "%" : "미확인"}</div>
+        <div class="n">${c.sigmaMeasured ? "실측 " + c.sigmaMeasured + "% (" + c.measuredNote + ")" : "할인 누적 방식 파악 전"}</div></div>
+      <div class="tile"><div class="k">보수</div>
+        <div class="v">${c.commission ? c.commission.total + "%" : "미확인"}</div>
+        <div class="n">${c.commission ? c.commission.note : "커미션 구조 파악 전"}</div></div>
+      <div class="tile"><div class="k">추가 차감</div>
+        <div class="v" style="font-size:15px">${c.extraDeduction ? c.extraDeduction.range : "미확인"}</div>
+        <div class="n">${c.extraDeduction ? c.extraDeduction.name + " — " + c.extraDeduction.note : "—"}</div></div>
+    </div>
+    ${c.dupRule ? `<div class="call"><b>중복 규칙</b> — ${c.dupRule}</div>` : ""}
+    ${todo}`;
+}
+function mountTabs() {
+  renderChannelTabs("chtabs", CH, k => { CH = k; mountTabs(); paintChannel(); }, { allowPlanned: true });
+}
+mountTabs(); paintChannel();
+
+/* 보수 표 */
+(function () {
+  const c = CHANNELS.agoda.commission, t = document.getElementById("commTable");
+  t.querySelector("thead").innerHTML = "<tr><th>항목</th><th>현재</th><th>설정 가능 범위</th></tr>";
+  t.querySelector("tbody").innerHTML =
+    c.parts.map(p => `<tr><td>${p.name}</td><td class="mono"><b>${p.cur}%</b></td>
+      <td style="color:var(--text-dim)">${p.range}</td></tr>`).join("") +
+    `<tr style="background:var(--sunk)"><td><b>합계</b></td><td class="mono"><b>${c.total}%</b></td>
+      <td style="color:var(--warn)">${c.note}</td></tr>`;
+})();
+
+/* 로드맵 */
+(function () {
+  document.getElementById("roadmap").innerHTML = CHANNEL_ORDER.map(k => {
+    const c = CHANNELS[k];
+    const items = (c.todo || []).map(t => `<li>${t}</li>`).join("");
+    return `<h3 style="margin-top:22px">${c.name} ${statusBadge(c.status)}
+        <span style="font-weight:400;color:var(--text-faint);font-size:12px">
+          ${c.cmsGroups.join(" · ")}</span></h3>
+      ${items ? `<ul class="todo">${items}</ul>`
+              : `<p style="color:var(--ok);font-size:13px">확인 완료. 계산기에서 쓸 수 있습니다.</p>`}`;
+  }).join("");
+})();
+</script>
+</body>
+</html>

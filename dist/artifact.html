@@ -1,0 +1,2098 @@
+<title>OTA 요금 콘솔</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap">
+<style>
+:root{
+  --ground:#ECEFEA; --surface:#F6F8F4; --sunk:#E1E6DE;
+  --line:#CBD3C9; --line-soft:#DCE2D8;
+  --text:#0F1A1C; --text-dim:#4C5A57; --text-faint:#75837E;
+  --brass:#8F6516; --brass-soft:#EFE2C6;
+  --ok:#256B4B; --ok-soft:#D3E7DB;
+  --warn:#9C6112; --warn-soft:#F5E4C8;
+  --bad:#973129; --bad-soft:#F3D8D4;
+  --shadow:0 1px 2px rgba(15,26,28,.06), 0 8px 24px -16px rgba(15,26,28,.22);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ground:#0C1214; --surface:#141D1E; --sunk:#0A0F11;
+    --line:#2A3739; --line-soft:#1E2A2B;
+    --text:#E2E8E2; --text-dim:#9DAAA6; --text-faint:#71807C;
+    --brass:#D5A244; --brass-soft:#3A2E16;
+    --ok:#5CBF92; --ok-soft:#12291F;
+    --warn:#DFA85A; --warn-soft:#2E2312;
+    --bad:#E08078; --bad-soft:#2E1715;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px -16px rgba(0,0,0,.7);
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#0C1214; --surface:#141D1E; --sunk:#0A0F11;
+  --line:#2A3739; --line-soft:#1E2A2B;
+  --text:#E2E8E2; --text-dim:#9DAAA6; --text-faint:#71807C;
+  --brass:#D5A244; --brass-soft:#3A2E16;
+  --ok:#5CBF92; --ok-soft:#12291F;
+  --warn:#DFA85A; --warn-soft:#2E2312;
+  --bad:#E08078; --bad-soft:#2E1715;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px -16px rgba(0,0,0,.7);
+}
+
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--ground); color:var(--text);
+  font-family:"IBM Plex Sans KR",system-ui,-apple-system,"Malgun Gothic",sans-serif;
+  font-size:15px; line-height:1.55; -webkit-font-smoothing:antialiased;
+}
+.mono{font-family:"IBM Plex Mono","SFMono-Regular",ui-monospace,monospace;font-variant-numeric:tabular-nums}
+.wrap{max-width:1180px;margin:0 auto;padding:28px 20px 72px}
+
+/* ── header ─────────────────────────────── */
+header{display:flex;flex-wrap:wrap;align-items:flex-end;gap:16px;
+  padding-bottom:18px;border-bottom:2px solid var(--text);margin-bottom:26px}
+h1{margin:0;font-size:27px;font-weight:700;letter-spacing:-.02em;line-height:1.15}
+.sub{margin:4px 0 0;color:var(--text-dim);font-size:13px}
+.formula{margin-left:auto;font-size:12px;color:var(--text-dim);
+  background:var(--sunk);border:1px solid var(--line-soft);border-radius:5px;padding:7px 12px}
+.formula b{color:var(--brass);font-weight:600}
+
+/* ── mode switch ────────────────────────── */
+.modes{display:inline-flex;background:var(--sunk);border:1px solid var(--line);
+  border-radius:7px;padding:3px;gap:3px;margin-bottom:22px}
+.modes button{font:inherit;font-size:13px;font-weight:500;border:0;cursor:pointer;
+  padding:7px 18px;border-radius:5px;background:transparent;color:var(--text-dim)}
+.modes button[aria-pressed="true"]{background:var(--surface);color:var(--text);
+  box-shadow:var(--shadow);font-weight:600}
+.modes button:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
+
+/* ── grid ───────────────────────────────── */
+.cols{display:grid;grid-template-columns:minmax(0,1fr);gap:20px}
+.cols > *{min-width:0}
+/* 좁은 화면: 결과를 위로 */
+.col-input{order:2} .col-out{order:1}
+@media(min-width:940px){
+  .cols{grid-template-columns:minmax(0,1fr) 400px;align-items:start}
+  .col-input{order:1} .col-out{order:2}
+}
+@media(max-width:939px){
+  .readout{position:static}
+  .wrap{padding-left:14px;padding-right:14px}
+  h1{font-size:23px}
+  .formula{margin-left:0;font-size:11px}
+  .big .fig{font-size:38px}
+  .opt .id{display:none}
+  .grp-head{flex-wrap:wrap;row-gap:2px}
+  .rule{flex-basis:100%;order:3}
+}
+
+.card{background:var(--surface);border:1px solid var(--line);border-radius:9px;
+  box-shadow:var(--shadow);overflow:hidden;max-width:100%}
+.card + .card{margin-top:18px}
+.card h2{margin:0;font-size:12px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--text-dim);padding:13px 18px;border-bottom:1px solid var(--line-soft);
+  background:var(--sunk);display:flex;align-items:center;gap:9px}
+.card h2 .tally{margin-left:auto;color:var(--brass);letter-spacing:0;font-size:13px}
+.card .body{padding:16px 18px}
+
+/* ── promo rows ─────────────────────────── */
+.grp{border-top:1px solid var(--line-soft)}
+.grp:first-child{border-top:0}
+.grp-head{display:flex;align-items:baseline;gap:9px;padding:13px 18px 7px}
+.grp-name{font-size:13px;font-weight:600}
+.rule{font-size:11px;color:var(--text-faint)}
+.grp-sum{margin-left:auto;font-size:13px;font-weight:600}
+.opts{padding:0 18px 13px;display:flex;flex-direction:column;gap:2px}
+.opts.scroll-y{max-height:268px;overflow-y:auto;margin:0 4px 9px;padding:0 14px 4px;
+  border:1px solid var(--line-soft);border-radius:6px;background:var(--ground)}
+.opt{display:flex;align-items:center;gap:10px;padding:5px 8px;border-radius:5px;cursor:pointer}
+.opt:hover{background:var(--sunk)}
+.opt input{accent-color:var(--brass);width:15px;height:15px;margin:0;flex:none;cursor:pointer}
+.opt input:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
+.opt .nm{flex:1;min-width:0;font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.opt .id{font-size:11px;color:var(--text-faint);flex:none}
+.opt .pct{width:62px;flex:none;text-align:right;padding:3px 7px;font-size:13px;
+  border:1px solid var(--line);border-radius:4px;background:var(--ground);color:var(--text)}
+.opt .pct:disabled{opacity:.35;background:transparent;border-color:transparent}
+.opt.on{background:var(--brass-soft)}
+.opt.on .nm{font-weight:600}
+.opt.risk .nm::after{content:" 위험";color:var(--bad);font-size:11px;font-weight:600}
+.locked .opt{cursor:default;background:var(--brass-soft)}
+.locked .opt .nm{font-weight:600}
+.locked .dot{width:15px;height:15px;flex:none;border-radius:50%;background:var(--brass);
+  position:relative}
+.locked .dot::after{content:"";position:absolute;inset:4px;border-radius:50%;background:var(--surface)}
+.locked .pct{opacity:1;color:var(--text)}
+
+/* ── commission ─────────────────────────── */
+.crow{display:flex;align-items:center;gap:12px;padding:8px 0;border-top:1px solid var(--line-soft)}
+.crow:first-child{border-top:0}
+.crow .lab{flex:1;min-width:0;font-size:13.5px}
+.crow .lab small{display:block;color:var(--text-faint);font-size:11px}
+.crow select,.crow input[type="number"]{font:inherit;font-size:13px;padding:5px 8px;
+  border:1px solid var(--line);border-radius:5px;background:var(--ground);color:var(--text)}
+.crow select{max-width:180px}
+.crow .val{width:56px;text-align:right;font-size:13.5px;font-weight:600}
+input[type="range"]{accent-color:var(--brass);flex:1;min-width:80px}
+.hint{margin:12px 0 0;padding:10px 12px;background:var(--sunk);border-left:3px solid var(--brass);
+  border-radius:0 5px 5px 0;font-size:12px;line-height:1.6;color:var(--text-dim)}
+.hint b{color:var(--text);font-weight:600}
+
+/* ── readout ────────────────────────────── */
+.readout{position:sticky;top:18px}
+.big{padding:22px 20px;text-align:center;border-bottom:1px solid var(--line-soft)}
+.big .cap{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--text-dim)}
+.big .fig{font-size:44px;font-weight:600;line-height:1.05;margin-top:5px;letter-spacing:-.02em}
+.big .unit{font-size:20px;color:var(--text-dim);margin-left:3px}
+.big .note{font-size:12px;color:var(--text-dim);margin-top:6px}
+.big.bad{background:var(--bad-soft)} .big.bad .fig{color:var(--bad)}
+.big.warn{background:var(--warn-soft)} .big.warn .fig{color:var(--warn)}
+.big.ok .fig{color:var(--text)}
+
+.target{display:flex;align-items:center;gap:10px;padding:14px 18px;background:var(--sunk);
+  border-bottom:1px solid var(--line-soft)}
+.target label{font-size:12.5px;font-weight:600;flex:none}
+.target input{font:inherit;font-size:17px;font-weight:600;width:100%;padding:7px 11px;
+  border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--text);
+  text-align:right;font-family:"IBM Plex Mono",ui-monospace,monospace;font-variant-numeric:tabular-nums}
+.target input:focus{outline:2px solid var(--brass);outline-offset:0}
+.chips{display:flex;gap:5px;padding:0 18px 13px;background:var(--sunk);flex-wrap:wrap}
+.chips button{font:inherit;font-size:11.5px;padding:4px 10px;border-radius:20px;cursor:pointer;
+  border:1px solid var(--line);background:var(--surface);color:var(--text-dim)}
+.chips button:hover{border-color:var(--brass);color:var(--brass)}
+.chips button:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
+
+/* ── chain ──────────────────────────────── */
+.chain{padding:6px 18px 16px}
+.step{display:flex;align-items:baseline;gap:10px;padding:7px 0;font-size:13px;
+  border-bottom:1px dashed var(--line-soft)}
+.step:last-child{border-bottom:0}
+.step .k{color:var(--text-dim);flex:1;min-width:0}
+.step .k em{font-style:normal;color:var(--text-faint);font-size:11.5px;display:block}
+.step .v{font-weight:600;white-space:nowrap}
+.step.hi{background:var(--sunk);margin:0 -18px;padding:8px 18px;border-bottom:0}
+.step.hi .v{color:var(--brass)}
+
+/* ── bars ───────────────────────────────── */
+.bar{display:flex;height:26px;border-radius:5px;overflow:hidden;border:1px solid var(--line);margin-top:4px}
+.seg{display:flex;align-items:center;justify-content:center;font-size:10.5px;font-weight:600;
+  color:#fff;min-width:0;overflow:hidden;white-space:nowrap;
+  font-family:"IBM Plex Mono",ui-monospace,monospace}
+.legend{display:flex;flex-wrap:wrap;gap:12px;margin-top:8px;font-size:11.5px;color:var(--text-dim)}
+.legend i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:5px;vertical-align:baseline}
+
+/* ── table ──────────────────────────────── */
+.scroll{overflow-x:auto;max-width:100%}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th,td{padding:8px 12px;text-align:right;white-space:nowrap;border-bottom:1px solid var(--line-soft)}
+th{font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-dim);
+  font-weight:600;background:var(--sunk);position:sticky;top:0}
+th:first-child,td:first-child{text-align:left}
+tbody tr:hover{background:var(--sunk)}
+td.num{font-family:"IBM Plex Mono",ui-monospace,monospace;font-variant-numeric:tabular-nums}
+.pill{display:inline-block;padding:1px 8px;border-radius:20px;font-size:11px;font-weight:600}
+.pill.ok{background:var(--ok-soft);color:var(--ok)}
+.pill.warn{background:var(--warn-soft);color:var(--warn)}
+.pill.bad{background:var(--bad-soft);color:var(--bad)}
+
+.foot{margin-top:26px;padding-top:16px;border-top:1px solid var(--line);
+  font-size:12px;color:var(--text-faint);display:flex;flex-wrap:wrap;gap:18px}
+.foot b{color:var(--text-dim);font-weight:600}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+/* ══ 사이트 셸 ══════════════════════════════════════════════ */
+.topbar{position:sticky;top:0;z-index:50;background:color-mix(in srgb, var(--ground) 88%, transparent);
+  backdrop-filter:saturate(1.4) blur(12px);border-bottom:1px solid var(--line-soft)}
+.topbar-in{max-width:1180px;margin:0 auto;padding:0 20px;display:flex;align-items:center;
+  gap:26px;min-height:54px;flex-wrap:wrap}
+.brand{font-weight:700;font-size:14px;letter-spacing:-.01em;white-space:nowrap;
+  display:flex;align-items:baseline;gap:8px}
+.brand em{font-style:normal;font-size:11px;color:var(--text-faint);font-weight:500}
+.nav{display:flex;gap:2px;flex-wrap:wrap;margin-left:auto}
+.nav a{font-size:13px;color:var(--text-dim);text-decoration:none;padding:7px 11px;
+  border-radius:7px;transition:background .12s,color .12s;white-space:nowrap}
+.nav a:hover{background:var(--sunk);color:var(--text)}
+.nav a[aria-current="page"]{background:var(--brass-soft);color:var(--brass);font-weight:600}
+.nav a:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
+
+/* 채널 탭 */
+.chtabs{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 22px}
+.chtab{font:inherit;font-size:13px;padding:8px 14px;border-radius:9px;cursor:pointer;
+  border:1px solid var(--line);background:var(--surface);color:var(--text-dim);
+  display:flex;align-items:center;gap:7px;transition:all .12s}
+.chtab:hover:not(:disabled){border-color:var(--brass);color:var(--text)}
+.chtab[aria-pressed="true"]{background:var(--brass);border-color:var(--brass);color:#fff;font-weight:600}
+.chtab:disabled{opacity:.5;cursor:not-allowed}
+.chtab .dot{width:6px;height:6px;border-radius:50%;background:var(--text-faint)}
+.chtab[data-status="live"] .dot{background:var(--ok)}
+.chtab[data-status="partial"] .dot{background:var(--warn)}
+.chtab[aria-pressed="true"] .dot{background:#fff}
+
+/* 상태 배지 */
+.badge{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;
+  padding:3px 9px;border-radius:999px;letter-spacing:.02em;vertical-align:middle}
+.badge.live{background:var(--ok-soft);color:var(--ok)}
+.badge.partial{background:var(--warn-soft);color:var(--warn)}
+.badge.planned{background:var(--sunk);color:var(--text-faint)}
+
+/* 문서형 페이지 */
+.doc{max-width:1180px;margin:0 auto;padding:34px 20px 90px}
+.doc h1{font-size:27px;letter-spacing:-.022em;margin:0 0 6px;text-wrap:balance}
+.doc .lede{font-size:14.5px;color:var(--text-dim);margin:0 0 34px;max-width:66ch;line-height:1.62}
+.doc h2{font-size:17px;letter-spacing:-.014em;margin:44px 0 4px;text-wrap:balance}
+.doc h2:first-of-type{margin-top:34px}
+.doc h2 + .sub{font-size:12.5px;color:var(--text-faint);margin:0 0 16px;max-width:70ch;line-height:1.6}
+.doc h3{font-size:14px;margin:26px 0 10px;color:var(--text-dim);letter-spacing:.01em}
+.doc p{max-width:70ch;line-height:1.7;margin:0 0 12px;font-size:13.5px}
+.doc ul{max-width:70ch;line-height:1.7;font-size:13.5px;padding-left:20px;margin:0 0 12px}
+.doc li{margin-bottom:5px}
+.doc .card{padding:0;overflow:hidden}
+.doc table{font-size:13px}
+.doc .scroll{max-height:none}
+
+/* 콜아웃 */
+.call{border-left:3px solid var(--line);background:var(--surface);border-radius:0 10px 10px 0;
+  padding:14px 18px;margin:16px 0;max-width:74ch;font-size:13px;line-height:1.68}
+.call b{font-weight:600}
+.call.ok{border-color:var(--ok);background:var(--ok-soft)}
+.call.warn{border-color:var(--warn);background:var(--warn-soft)}
+.call.bad{border-color:var(--bad);background:var(--bad-soft)}
+.call .lbl{display:block;font-size:11px;font-weight:700;letter-spacing:.07em;
+  text-transform:uppercase;margin-bottom:5px;opacity:.85}
+
+/* 수치 타일 */
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(158px,1fr));gap:12px;margin:18px 0}
+.tile{background:var(--surface);border:1px solid var(--line-soft);border-radius:12px;padding:14px 16px}
+.tile .k{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-faint);
+  margin-bottom:7px;line-height:1.35}
+.tile .v{font-size:22px;font-weight:600;letter-spacing:-.02em;
+  font-family:"IBM Plex Mono",ui-monospace,monospace;font-variant-numeric:tabular-nums}
+.tile .n{font-size:11.5px;color:var(--text-dim);margin-top:5px;line-height:1.5}
+.tile.ok .v{color:var(--ok)} .tile.warn .v{color:var(--warn)} .tile.bad .v{color:var(--bad)}
+
+/* 할 일 목록 */
+.todo{list-style:none;padding:0;margin:12px 0;max-width:74ch}
+.todo li{display:flex;gap:11px;align-items:flex-start;padding:9px 0;
+  border-bottom:1px solid var(--line-soft);font-size:13px;line-height:1.6}
+.todo li:last-child{border-bottom:0}
+.todo li::before{content:"";flex:0 0 15px;height:15px;margin-top:2px;border-radius:4px;
+  border:1.5px solid var(--line);background:var(--surface)}
+
+.doc .foot{max-width:none}
+
+/* 단일 파일 전용 — 페이지 탭 */
+.pgtab{font:inherit;font-size:13px;color:var(--text-dim);padding:7px 12px;border-radius:7px;
+  border:0;background:transparent;cursor:pointer;transition:background .12s,color .12s;white-space:nowrap}
+.pgtab:hover{background:var(--sunk);color:var(--text)}
+.pgtab[aria-pressed="true"]{background:var(--brass-soft);color:var(--brass);font-weight:600}
+.pgtab:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
+.page[hidden]{display:none}
+</style>
+
+<div class="topbar"><div class="topbar-in">
+  <span class="brand">평택 스테이 호텔 <em>OTA 요금 콘솔</em></span>
+  <nav class="nav"><button class="pgtab" data-pg="calc" aria-pressed="true">계산기</button><button class="pgtab" data-pg="rates" aria-pressed="false">요금표</button><button class="pgtab" data-pg="measured" aria-pressed="false">실측 기록</button><button class="pgtab" data-pg="status" aria-pressed="false">현재 설정</button></nav>
+</div></div>
+
+<div class="page" id="pg-calc" >
+<div class="wrap">
+<header>
+  <div>
+    <h1>입금가 역산기</h1>
+    <p class="sub" id="subline">프로모션을 고르고 목표 입금가를 넣으면 CMS 설정값이 나옵니다</p>
+  </div>
+  <div class="formula mono">입금가 = CMS × (1 − <b>Σ</b>) × (1 − <b>보수</b>)</div>
+</header>
+
+<div id="chtabs-calc"></div>
+<div id="chNote"></div>
+
+<div class="modes" role="group" aria-label="계산 방향">
+  <button id="mRev" aria-pressed="true">목표 입금가 → CMS</button>
+  <button id="mFwd" aria-pressed="false">CMS → 입금가</button>
+</div>
+
+<div class="cols">
+  <!-- ══ 좌: 조건 ══ -->
+  <div class="col-input">
+    <section class="card">
+      <h2>프로모션 <span class="tally mono" id="sigTally">Σ 0%</span></h2>
+      <div id="promoGroups"></div>
+    </section>
+
+    <section class="card">
+      <h2>아고다 보수 <span class="tally mono" id="commTally">0%</span></h2>
+      <div class="body" id="commBody"></div>
+    </section>
+
+    <section class="card">
+      <h2>실측 대조 <span class="tally mono" id="measTally">Σ 54.37%</span></h2>
+      <div class="body" id="measBody"></div>
+    </section>
+
+    <section class="card">
+      <h2>요일별 일괄 <span class="tally mono" id="tableTally"></span></h2>
+      <div class="scroll">
+        <table id="dayTable"><thead></thead><tbody></tbody></table>
+      </div>
+    </section>
+  </div>
+
+  <!-- ══ 우: 결과 ══ -->
+  <div class="col-out">
+    <section class="card readout">
+      <div class="target">
+        <label for="tgt" id="tgtLabel">목표 입금가</label>
+        <input id="tgt" class="mono" type="text" inputmode="numeric" value="45,000">
+      </div>
+      <div class="chips" id="chips"></div>
+
+      <div class="big" id="bigBox">
+        <div class="cap" id="bigCap">필요 CMS 설정값</div>
+        <div class="fig mono"><span id="bigFig">—</span><span class="unit">원</span></div>
+        <div class="note" id="bigNote"></div>
+      </div>
+
+      <div class="chain" id="chain"></div>
+
+      <div class="body" style="border-top:1px solid var(--line-soft)">
+        <div style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-dim)">CMS 1원이 어디로 가나</div>
+        <div class="bar" id="splitBar"></div>
+        <div class="legend" id="splitLegend"></div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<div class="foot">
+  <span><b>하한</b> 입금가 40,000원 · <b>목표</b> 토 65,000 / 일·월 43,000~46,000</span>
+  <span><b>검증</b> 실제 예약 5건 원 단위 일치 · 정산 대조 보수 18% 15/15 · 노출가 3점 실측 08-23</span>
+  <span><b>중복 규칙</b> 시즌 1개 · 타겟팅 카테고리당 1개 · 알뜰 무제한</span>
+</div>
+</div>
+
+
+<script>
+"use strict";
+
+"use strict";
+const FLOOR = 40000;
+
+/* 프로모션 — 아고다 중복 규칙을 UI가 강제한다.
+   single: 그 그룹에서 최대 1개 (라디오)  |  multi: 개수 제한 없음 (체크박스) */
+const GROUPS = [
+  { key:"core", name:"성과 극대화", rule:"항상 적용 · 예약마다 붙는다", mode:"locked",
+    items:[{id:"mg", nm:"Maximum Gain", tag:"28일 전수", pct:35, on:true}] },
+
+  { key:"season", name:"시즌 프로모션", rule:"여러 개 켜도 예약엔 1개만 붙는다 · 할인율은 우리가 정한다", mode:"single", scroll:true,
+    items:[
+      {id:"s0", nm:"없음", pct:0},
+      {id:"s2222", nm:"메가 세일", tag:"2222 · 적용 중", pct:10, on:true},
+      {id:"s2221", nm:"VIP 사전 판매 - 메가 세일", tag:"2221 · 11/12~15", pct:5},
+      {id:"s2223", nm:"24시간 한정 깜짝 할인", tag:"2223 · 11/27", pct:10},
+      {id:"sbye", nm:"Bye-Bye Summertime", tag:"8/26~9/1", pct:15},
+      {id:"shot", nm:"Hot Deal", tag:"8/23", pct:15},
+      {id:"smid", nm:"월간 중순 세일", tag:"8/23~25", pct:15},
+      {id:"smn", nm:"[Flash] Midnight Madness", tag:"0~3시", pct:15},
+      {id:"snd", nm:"[Flash] Noon Dash Deals", tag:"14~18시", pct:15},
+      {id:"sol", nm:"올빼미 세일", tag:"365 · 심야", pct:20},
+      {id:"sab", nm:"Deals Abroad", tag:"462 · 해외", pct:15},
+      {id:"s794", nm:"미리 예약하고 더 저렴하게", tag:"794", pct:20},
+      {id:"s795", nm:"3박한 특가", tag:"795", pct:20},
+      {id:"s3", nm:"깜짝 할인 수요 특가", tag:"3 · 수요일", pct:20},
+      {id:"s4", nm:"월급날 세일", tag:"4 · 8/27~31", pct:20},
+      {id:"sdd", nm:"더블 데이 메가 세일", tag:"141 · 9/2~15", pct:10},
+      {id:"smp", nm:"Maple Week", tag:"9/7~20", pct:10},
+      {id:"ssg", nm:"Agoda Save & Go", tag:"9/17~30", pct:10},
+      {id:"shw", nm:"할로윈 세일", tag:"10/24~11/6", pct:15},
+      {id:"sbf", nm:"블랙 프라이데이 세일", tag:"11/17~30", pct:15},
+      {id:"sye", nm:"연말 세일", tag:"12/1~14", pct:15},
+      {id:"sxm", nm:"크리스마스 세일", tag:"12/18~31", pct:15},
+    ]},
+
+  { key:"tRegion", name:"타겟팅 · 지역", rule:"카테고리당 1개", mode:"single",
+    items:[
+      {id:"r0", nm:"없음", pct:0},
+      {id:"r21", nm:"International Rate", tag:"21 · 적용 중", pct:10, on:true},
+      {id:"r5144", nm:"US (IP only)", tag:"5144 · 적용 중", pct:10},
+      {id:"rasia", nm:"Asia (IP only)", pct:10},
+      {id:"rdom", nm:"Domestic", tag:"평택 손님 100%", pct:10},
+      {id:"rchn", nm:"China", pct:10},
+      {id:"rgl", nm:"GoLocal Tonight", tag:"당일 체크인", pct:10},
+    ]},
+
+  { key:"tPlat", name:"타겟팅 · 플랫폼", rule:"카테고리당 1개", mode:"single",
+    items:[
+      {id:"p0", nm:"없음", pct:0, on:true},
+      {id:"pmob", nm:"Mobile", tag:"예약 50%+", pct:10},
+      {id:"ppkg", nm:"Package", tag:"호텔+항공", pct:10},
+    ]},
+
+  { key:"tMem", name:"타겟팅 · 멤버십", rule:"카테고리당 1개", mode:"single",
+    items:[
+      {id:"m0", nm:"없음", pct:0, on:true},
+      {id:"mpriv", nm:"Private Sale", tag:"로그인 고객", pct:10},
+      {id:"mpt", nm:"VIP Platinum", tag:"2년 10건+", pct:10},
+      {id:"mgd", nm:"VIP Gold", tag:"2년 5건+", pct:10},
+      {id:"msv", nm:"VIP Silver", tag:"2년 2건+", pct:10},
+    ]},
+
+  { key:"tEtc", name:"타겟팅 · 기타", rule:"카테고리당 1개", mode:"single",
+    items:[
+      {id:"e0", nm:"없음", pct:0, on:true},
+      {id:"eeco", nm:"Eco Deals", tag:"아고다·WWF", pct:10},
+    ]},
+
+  { key:"saver", name:"알뜰 프로모션", rule:"개수 제한 없음 — 전부 더해진다", mode:"multi", scroll:true,
+    items:[
+      {id:"a218671761", nm:"얼리버드 (리드타임 6일↑)", tag:"218671761 · 적용 중", pct:10, on:true},
+      {id:"a213111900", nm:"마감 임박", tag:"213111900", pct:10},
+      {id:"a209167987", nm:"장기 투숙 3박↑", tag:"209167987", pct:5},
+      {id:"a209167986", nm:"장기 투숙 7박↑", tag:"209167986", pct:8},
+      {id:"a209167985", nm:"장기 투숙 28박↑", tag:"209167985", pct:10},
+      {id:"a213082527", nm:"주간 숙박 (7박)", tag:"213082527", pct:5},
+      {id:"a213082528", nm:"월간 숙박 (28박)", tag:"213082528", pct:5},
+      {id:"a212904620", nm:"맞춤형", tag:"212904620", pct:5},
+      {id:"a219087338", nm:"객실 점유율", tag:"219087338", pct:10, risk:true},
+    ]},
+];
+
+const COMM = {
+  contract: 10,
+  agp: 8,          // 무료 0 / 8 / 17
+  agxOn: true, agx: 2,   // 1~40
+  sl: 0,           // 0 / 7.2 / 10.3
+};
+
+/* WINGSCMS 2026-08-23 실측 */
+const DAYS = [
+  {d:"월~목", set:"WEEK", cms:160000, tgt:45000},
+  {d:"월~목", set:"W3",   cms:175000, tgt:45000},
+  {d:"금",    set:"FRI",  cms:190000, tgt:55000},
+  {d:"토",    set:"SAT",  cms:220000, tgt:65000},
+  {d:"일",    set:"SUN",  cms:140000, tgt:45000},
+  {d:"일",    set:"WEEK", cms:160000, tgt:45000},
+];
+
+let mode = "reverse";
+let roundUnit = 5000;
+const state = {};
+GROUPS.forEach(g => {
+  if (g.mode === "multi") {
+    g.items.forEach(it => state[it.id] = { on: !!it.on, pct: it.pct });
+  } else {
+    const on = g.items.find(i => i.on) || g.items[0];
+    state[g.key] = { sel: on.id };
+    g.items.forEach(it => state[it.id] = { pct: it.pct });
+  }
+});
+
+const won = n => Math.round(n).toLocaleString("ko-KR");
+const ceilTo = (n,u) => Math.ceil(n/u)*u;
+const num = s => Number(String(s).replace(/[^\d.-]/g,"")) || 0;
+
+/* ── 실측 ──────────────────────────────────
+   2026-08-23 조회. 스탠다드 Room Only, 소비자 페이지 vs 포털 ARI 캘린더.
+   메가세일 할인액이 (CMS÷1.1)×10% 와 원 단위까지 일치 → 기준값·세전 규칙 확정. */
+const MEAS = {
+  date: "2026-08-23 조회",
+  sigma: 54.37,              // 3개 날짜 평균 (54.400 / 54.364 / 54.336)
+  points: [
+    // 날짜, CMS, 원래요금(세전), 메가세일, 쿠폰
+    ["10/28 수", 160000, 66327, 14545,  9594],
+    ["10/30 금", 190000, 78826, 17273, 12078],
+    ["10/31 토", 220000, 91328, 20000, 14616],
+  ],
+};
+let useMeas = false;
+
+function theorySigma(){
+  let t = 0;
+  GROUPS.forEach(g => {
+    if (g.mode === "multi") {
+      g.items.forEach(it => { if (state[it.id].on) t += state[it.id].pct; });
+    } else {
+      const id = state[g.key].sel;
+      t += state[id] ? state[id].pct : 0;
+    }
+  });
+  return t;
+}
+function sigma(){ return useMeas ? MEAS.sigma : theorySigma(); }
+function commission(){
+  return COMM.contract + COMM.agp + (COMM.agxOn ? COMM.agx : 0) + COMM.sl;
+}
+const coef = () => (1 - sigma()/100) * (1 - commission()/100);
+
+/* ── 렌더: 프로모션 ── */
+function renderPromos(){
+  const root = document.getElementById("promoGroups");
+  root.innerHTML = "";
+  GROUPS.forEach(g => {
+    const wrap = document.createElement("div");
+    wrap.className = "grp" + (g.mode === "locked" ? " locked" : "");
+    let sum = 0;
+    if (g.mode === "multi") g.items.forEach(it => { if (state[it.id].on) sum += state[it.id].pct; });
+    else { const id = state[g.key] ? state[g.key].sel : g.items[0].id; sum = state[id] ? state[id].pct : 0; }
+    if (g.mode === "locked") sum = g.items[0].pct;
+
+    const head = document.createElement("div");
+    head.className = "grp-head";
+    head.innerHTML = `<span class="grp-name"></span><span class="rule"></span>
+      <span class="grp-sum mono">+${sum}%</span>`;
+    head.querySelector(".grp-name").textContent = g.name;
+    head.querySelector(".rule").textContent = g.rule;
+    if (sum === 0) head.querySelector(".grp-sum").style.color = "var(--text-faint)";
+    wrap.appendChild(head);
+
+    const opts = document.createElement("div");
+    opts.className = "opts" + (g.scroll ? " scroll-y" : "");
+    g.items.forEach(it => {
+      const isMulti = g.mode === "multi";
+      const on = g.mode === "locked" ? true
+               : isMulti ? state[it.id].on
+               : state[g.key].sel === it.id;
+      const row = document.createElement("label");
+      row.className = "opt" + (on && it.pct > 0 ? " on" : "") + (it.risk ? " risk" : "");
+      let inp;
+      if (g.mode === "locked"){
+        inp = document.createElement("span");
+        inp.className = "dot";
+        inp.setAttribute("role","img");
+        inp.setAttribute("aria-label","항상 적용됨");
+      } else {
+        inp = document.createElement("input");
+        inp.type = isMulti ? "checkbox" : "radio";
+        if (!isMulti) inp.name = g.key;
+        inp.checked = on;
+        inp.addEventListener("change", () => {
+          if (isMulti) state[it.id].on = inp.checked;
+          else state[g.key].sel = it.id;
+          recalc();
+        });
+      }
+      const nm = document.createElement("span");
+      nm.className = "nm"; nm.textContent = it.nm;
+      const tag = document.createElement("span");
+      tag.className = "id mono"; tag.textContent = it.tag || "";
+      const pct = document.createElement("input");
+      pct.type = "number"; pct.className = "pct mono"; pct.min = "0"; pct.max = "99"; pct.step = "1";
+      pct.value = state[it.id].pct;
+      pct.disabled = it.pct === 0 || g.mode === "locked";
+      if (g.mode === "locked") pct.removeAttribute("disabled"), pct.readOnly = true;
+      pct.setAttribute("aria-label", it.nm + " 할인율");
+      pct.addEventListener("input", () => {
+        state[it.id].pct = Math.max(0, Math.min(99, num(pct.value)));
+        recalc();
+      });
+      row.append(inp, nm, tag, pct);
+      opts.appendChild(row);
+    });
+    wrap.appendChild(opts);
+    root.appendChild(wrap);
+  });
+}
+
+/* ── 렌더: 보수 ── */
+function renderComm(){
+  const b = document.getElementById("commBody");
+  b.innerHTML = `
+    <div class="crow"><span class="lab">계약 수수료<small>고정</small></span>
+      <span class="val mono">10%</span></div>
+    <div class="crow"><span class="lab">AGP<small>아고다 성장 프로그램</small></span>
+      <select id="agp">
+        <option value="0">무료 체험 (0%)</option>
+        <option value="8">8%</option>
+        <option value="17">17%</option>
+      </select></div>
+    <div class="crow"><span class="lab"><label for="agxOn">AGX</label><small>순위 입찰 · 1~40%</small></span>
+      <input type="checkbox" id="agxOn" style="accent-color:var(--brass);width:16px;height:16px">
+      <input type="range" id="agx" min="1" max="40" step="1">
+      <span class="val mono" id="agxVal"></span></div>
+    <div class="crow"><span class="lab">광고 숙소<small>Sponsored Listing · 견적 기준</small></span>
+      <select id="sl">
+        <option value="0">미적용</option>
+        <option value="7.2">Top 15 (7.2%)</option>
+        <option value="10.3">Top 3 (10.3%)</option>
+      </select></div>
+    <p class="hint">기본값은 <b>지금 포털 설정</b>(계약 10 + AGP 8 + AGX 2 = 20%)입니다.
+      실제 정산에서 확인된 보수는 아직 <b>18%</b>뿐이고, AGX 2%는 대상 기간이 2026-08-30부터라
+      정산 사례가 0건입니다. 하한을 지키려면 <b>높은 쪽으로 잡는 편이 안전합니다.</b>
+      18%로 보려면 AGX를 끄세요.</p>`;
+  const agp = b.querySelector("#agp"), agxOn = b.querySelector("#agxOn"),
+        agx = b.querySelector("#agx"), sl = b.querySelector("#sl");
+  agp.value = String(COMM.agp);
+  agxOn.checked = COMM.agxOn; agx.value = COMM.agx; agx.disabled = !COMM.agxOn;
+  b.querySelector("#agxVal").textContent = COMM.agxOn ? COMM.agx + "%" : "—";
+  sl.value = String(COMM.sl);
+  agp.onchange = () => { COMM.agp = num(agp.value); recalc(); };
+  agxOn.onchange = () => { COMM.agxOn = agxOn.checked; recalc(); };
+  agx.oninput = () => { COMM.agx = num(agx.value); recalc(); };
+  sl.onchange = () => { COMM.sl = num(sl.value); recalc(); };
+}
+
+/* ── 렌더: 결과 ── */
+function recalc(){
+  const s = sigma(), c = commission(), k = coef();
+  document.getElementById("sigTally").textContent = "Σ " + theorySigma() + "%"
+    + (useMeas ? " · 미사용" : "");
+  document.getElementById("commTally").textContent = c.toFixed(c % 1 ? 1 : 0) + "%";
+  renderPromos();
+
+  const box = document.getElementById("bigBox"),
+        fig = document.getElementById("bigFig"),
+        note = document.getElementById("bigNote"),
+        chain = document.getElementById("chain");
+  const input = num(document.getElementById("tgt").value);
+
+  let cms, payout, cls, noteTxt;
+
+  if (k <= 0){
+    box.className = "big bad";
+    fig.textContent = "계산 불가";
+    note.textContent = "Σ와 보수의 합이 100%를 넘습니다. 프로모션을 줄이세요.";
+    chain.innerHTML = "";
+    document.getElementById("splitBar").innerHTML = "";
+    document.getElementById("splitLegend").innerHTML = "";
+    renderTable(); renderMeas();
+    return;
+  }
+
+  if (mode === "reverse"){
+    const raw = input / k;
+    cms = ceilTo(raw, roundUnit);
+    payout = cms * k;
+    fig.textContent = won(cms);
+    const over = payout - input;
+    noteTxt = `${roundUnit.toLocaleString()}원 올림 · 실제 입금 ${won(payout)}원 (목표 +${won(over)})`;
+    cls = input < FLOOR ? "warn" : "ok";
+    if (input < FLOOR) noteTxt = `목표가 하한 40,000원보다 낮습니다 · ${noteTxt}`;
+  } else {
+    cms = input;
+    payout = cms * k;
+    fig.textContent = won(payout);
+    cls = payout < FLOOR ? "bad" : (payout < FLOOR * 1.05 ? "warn" : "ok");
+    noteTxt = payout < FLOOR
+      ? `하한 40,000원에서 ${won(FLOOR - payout)}원 부족 · CMS ${won(ceilTo(FLOOR/k, roundUnit))}원 필요`
+      : `하한 40,000원 대비 ${won(payout - FLOOR)}원 여유`;
+  }
+  box.className = "big " + cls;
+  note.textContent = noteTxt;
+
+  const pay = cms * (1 - s/100);
+  chain.innerHTML = "";
+  const steps = [
+    ["CMS 설정값", "WINGSCMS에 넣는 금액", won(cms), true],
+    [`프로모션 −${s}%`, "카테고리 규칙대로 합산", "−" + won(cms - pay), false],
+    ["고객 결제", "아고다 '기준 판매 요금'", won(pay), false],
+    ["아고다 표시가", "고객 결제 ÷ 1.1", won(pay/1.1), false],
+    [`아고다 보수 −${c}%`, "계약 + AGP + AGX + 광고", "−" + won(pay - payout), false],
+    ["입금가", "PMS '총 청구 금액'", won(payout), true],
+  ];
+  steps.forEach(([k1,k2,v,hi]) => {
+    const d = document.createElement("div");
+    d.className = "step" + (hi ? " hi" : "");
+    d.innerHTML = `<span class="k"><em></em></span><span class="v mono"></span>`;
+    d.querySelector(".k").prepend(k1);
+    d.querySelector("em").textContent = k2;
+    d.querySelector(".v").textContent = v + "원";
+    chain.appendChild(d);
+  });
+  const kd = document.createElement("div");
+  kd.className = "step";
+  kd.innerHTML = `<span class="k">입금계수</span><span class="v mono">${k.toFixed(4)}</span>`;
+  chain.appendChild(kd);
+
+  // 분배 바
+  const pPromo = s, pComm = (100 - s) * c/100, pNet = 100 - pPromo - pComm;
+  const bar = document.getElementById("splitBar");
+  bar.innerHTML = "";
+  [[pNet,"var(--ok)","입금 "+pNet.toFixed(1)+"%"],
+   [pComm,"var(--brass)","보수 "+pComm.toFixed(1)+"%"],
+   [pPromo,"var(--text-dim)","할인 "+pPromo.toFixed(0)+"%"]].forEach(([w,col,lab])=>{
+    if (w <= 0) return;
+    const el = document.createElement("div");
+    el.className = "seg"; el.style.flex = w; el.style.background = col;
+    el.textContent = w >= 11 ? lab : "";
+    el.title = lab;
+    bar.appendChild(el);
+  });
+  document.getElementById("splitLegend").innerHTML =
+    `<span><i style="background:var(--ok)"></i>우리 입금 ${pNet.toFixed(1)}%</span>
+     <span><i style="background:var(--brass)"></i>아고다 보수 ${pComm.toFixed(1)}%</span>
+     <span><i style="background:var(--text-dim)"></i>손님 할인 ${pPromo.toFixed(0)}%</span>`;
+
+  renderTable();
+  renderMeas();
+}
+
+/* ── 렌더: 요일별 표 ── */
+function renderTable(){
+  const k = coef(), t = document.getElementById("dayTable");
+  document.getElementById("tableTally").textContent =
+    k > 0 ? "입금계수 " + k.toFixed(4) : "";
+  t.querySelector("thead").innerHTML =
+    `<tr><th>요일</th><th>요금세트</th><th>현재 CMS</th><th>지금 입금가</th>
+     <th>목표</th><th>목표용 CMS</th><th>차이</th><th>판정</th></tr>`;
+  const tb = t.querySelector("tbody");
+  tb.innerHTML = "";
+  if (k <= 0) return;
+  DAYS.forEach(r => {
+    const po = r.cms * k;
+    const need = ceilTo(r.tgt / k, roundUnit);
+    const diff = need - r.cms;
+    const cls = po < FLOOR ? "bad" : (po < FLOOR * 1.05 ? "warn" : "ok");
+    const lab = po < FLOOR ? "하한 미달" : (po < FLOOR * 1.05 ? "턱걸이" : "OK");
+    const tr = document.createElement("tr");
+    tr.innerHTML =
+      `<td>${r.d}</td><td class="num">${r.set}</td>
+       <td class="num">${won(r.cms)}</td>
+       <td class="num">${won(po)}</td>
+       <td class="num">${won(r.tgt)}</td>
+       <td class="num"><b>${won(need)}</b></td>
+       <td class="num">${diff === 0 ? "—" : (diff > 0 ? "+" : "") + won(diff)}</td>
+       <td><span class="pill ${cls}">${lab}</span></td>`;
+    tb.appendChild(tr);
+  });
+}
+
+/* ── 프리셋 ── */
+const PRESETS = [
+  ["하한 40,000", 40000], ["일·월 45,000", 45000],
+  ["금 55,000", 55000], ["토 65,000", 65000],
+];
+function renderChips(){
+  const c = document.getElementById("chips");
+  c.innerHTML = "";
+  if (mode === "reverse"){
+    PRESETS.forEach(([lab,v]) => {
+      const b = document.createElement("button");
+      b.textContent = lab;
+      b.onclick = () => { document.getElementById("tgt").value = v.toLocaleString("ko-KR"); recalc(); };
+      c.appendChild(b);
+    });
+  } else {
+    [140000,160000,175000,190000,220000].forEach(v => {
+      const b = document.createElement("button");
+      b.textContent = won(v);
+      b.onclick = () => { document.getElementById("tgt").value = v.toLocaleString("ko-KR"); recalc(); };
+      c.appendChild(b);
+    });
+  }
+  const r = document.createElement("button");
+  r.textContent = "올림 " + roundUnit.toLocaleString() + "원";
+  r.style.marginLeft = "auto";
+  r.style.borderColor = "var(--brass)";
+  r.style.color = "var(--brass)";
+  r.onclick = () => {
+    roundUnit = roundUnit === 5000 ? 1000 : roundUnit === 1000 ? 100 : 5000;
+    renderChips(); recalc();
+  };
+  c.appendChild(r);
+}
+
+/* ── 모드 ── */
+function setMode(m){
+  mode = m;
+  document.getElementById("mRev").setAttribute("aria-pressed", String(m === "reverse"));
+  document.getElementById("mFwd").setAttribute("aria-pressed", String(m === "forward"));
+  document.getElementById("tgtLabel").textContent = m === "reverse" ? "목표 입금가" : "CMS 설정값";
+  document.getElementById("bigCap").textContent = m === "reverse" ? "필요 CMS 설정값" : "예상 입금가";
+  document.getElementById("tgt").value = (m === "reverse" ? 45000 : 160000).toLocaleString("ko-KR");
+  renderChips(); recalc();
+}
+document.getElementById("mRev").onclick = () => setMode("reverse");
+document.getElementById("mFwd").onclick = () => setMode("forward");
+document.getElementById("tgt").addEventListener("input", e => {
+  const v = num(e.target.value);
+  const pos = e.target.selectionStart, before = e.target.value.length;
+  e.target.value = v ? v.toLocaleString("ko-KR") : "";
+  const after = e.target.value.length;
+  try { e.target.setSelectionRange(pos + (after - before), pos + (after - before)); } catch(_){}
+  recalc();
+});
+
+/* ── 렌더: 실측 대조 ── */
+function renderMeas(){
+  const b = document.getElementById("measBody");
+  const t = theorySigma();
+  const rows = MEAS.points.map(([d, cms, org, mega, coup]) => {
+    const real = Math.round(org * 1.1);          // 세금 포함 고객결제 (쿠폰 전)
+    const calc = Math.round(cms * (1 - t / 100));
+    const gap  = real - calc;
+    return `<tr><td>${d}</td><td class="mono">${cms.toLocaleString("ko-KR")}</td>
+      <td class="mono">${calc.toLocaleString("ko-KR")}</td>
+      <td class="mono">${real.toLocaleString("ko-KR")}</td>
+      <td class="mono" style="color:${Math.abs(gap) > real * .005 ? "var(--warn)" : "var(--text-dim)"}">
+        ${gap >= 0 ? "+" : ""}${gap.toLocaleString("ko-KR")}</td></tr>`;
+  }).join("");
+
+  b.innerHTML = `
+    <label style="display:flex;gap:10px;align-items:flex-start;cursor:pointer;margin-bottom:14px">
+      <input type="checkbox" id="measOn" ${useMeas ? "checked" : ""} style="margin-top:3px">
+      <span>Σ를 <b>실측 54.37%</b>로 고정<em style="display:block;font-style:normal;
+        font-size:11px;color:var(--text-faint);margin-top:3px">
+        켜면 위에서 고른 프로모션 대신 실제로 관측된 할인율을 씁니다</em></span>
+    </label>
+    <div class="scroll"><table>
+      <thead><tr><th>날짜</th><th>CMS</th><th>이론 Σ${t}%</th><th>실측</th><th>차이</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>
+    <p style="font-size:11.5px;color:var(--text-faint);line-height:1.65;margin:12px 0 0">
+      ${MEAS.date} · 스탠다드 Room Only · 소비자 페이지와 포털 ARI 캘린더 대조.<br>
+      메가세일 할인액이 <b>(CMS÷1.1)×10%</b>와 원 단위까지 일치 — 아고다 할인은 <b>세전</b>에 붙고
+      기준값은 <b>Room Only 요금</b>입니다.<br>
+      세 점 모두 선형: <span class="mono">원래요금(세전) = 0.458352 × (CMS÷1.1) − 343</span> (오차 ±1원)</p>
+    <p style="font-size:11.5px;color:var(--warn);line-height:1.65;margin:10px 0 0">
+      ⚠ <b>한국 IP에서 본 값입니다.</b> 실측 54.37%는 MG 35 + 메가세일 10 + 얼리버드 10 = 55%와
+      0.63%p 차이 — 즉 <b>International Rate 10%가 안 붙은 상태</b>입니다.
+      외국에서 접속한 손님은 Σ 65%(계수 0.35)일 수 있고, 그러면 입금가가 더 낮습니다.
+      아고다는 접속 국가로 노출가를 정하므로 여기서는 확인 불가 —
+      <b>실제 예약 건의 프로모션 내역으로 판정해야 합니다.</b><br><br>
+      ⚠ <b>쿠폰(AGODA_SPONSORED)</b>이 노출가에서 한 번 더 깎입니다
+      (−9,594 / −12,078 / −14,616). 아고다 부담으로 보이지만 <b>정산서 미확인</b> —
+      우리 부담이면 입금가가 그만큼 더 빠집니다.</p>`;
+
+  document.getElementById("measOn").onchange = e => { useMeas = e.target.checked; recalc(); };
+  document.getElementById("measTally").textContent =
+    useMeas ? "Σ 54.37% 적용 중" : "Σ 54.37%";
+}
+
+renderComm();
+renderChips();
+recalc();
+
+</script>
+</div>
+<div class="page" id="pg-rates" hidden>
+<main class="doc">
+  <h1>요금표</h1>
+  <p class="lede">CMS가 각 채널에 무엇을 보내고 있는지. 아고다는 채널이 실제로 들고 있는 값까지
+    대조했고, 나머지는 상품 매핑과 요금세트만 확인한 상태입니다.</p>
+
+  <div id="chtabs-rates"></div>
+  <div id="chBody-rates"></div>
+
+  <h2>아고다 기준요금 전수 — 2026-10-28</h2>
+  <p class="sub">포털 ARI 캘린더 실측. 아고다가 실제로 들고 있는 값이며 세금·봉사료 포함가입니다.</p>
+  <section class="card"><div class="scroll"><table id="roomTable">
+    <thead></thead><tbody></tbody></table></div></section>
+
+  <div class="call bad">
+    <span class="lbl">조식이 룸온리보다 싸다</span>
+    7개 객실 <b>예외 없이</b> 조식 1인 = Room Only × <b>0.70</b>, 조식 2인 = × <b>0.72</b>입니다.
+    손으로 넣은 값이 아니라 규칙으로 걸린 값이에요. 조식을 주면서 요금은 30% 깎아 파는 구조라,
+    같은 Σ가 붙으면 <b>조식 상품이 먼저 입금가 하한을 깹니다.</b>
+  </div>
+
+  <h2>채널별 CMS — 같은 객실을 얼마에 보내고 있나</h2>
+  <p class="sub">스탠다드 기준, 2026-08-23 조회. 커미션과 프로모션 구조가 채널마다 달라서
+    CMS가 다른 건 정상입니다. 다만 차이가 이 정도로 벌어져 있다는 건 알고 있어야 합니다.</p>
+  <section class="card"><div class="scroll"><table id="cmpTable">
+    <thead></thead><tbody></tbody></table></div></section>
+  <p style="font-size:12.5px;color:var(--text-faint);max-width:70ch">
+    조식 상품은 별도 상품그룹으로 붙습니다 — 아고 조식 1인 112,000 / 2인 115,200 / 트립 조식 2인 170,000 (WEEK 기준).</p>
+
+  <h2>요금세트 — 채널마다 쓸 수 있는 게 다르다</h2>
+  <p class="sub">WINGSCMS 요금관리 화면의 상품그룹별 select 를 전수로 읽은 결과입니다.</p>
+  <section class="card"><div class="scroll"><table id="setTable">
+    <thead></thead><tbody></tbody></table></div></section>
+
+  <div class="call warn">
+    <span class="lbl">test 세트를 찾고 있었다면</span>
+    <b>아고다 채널에는 없습니다.</b> 부킹·히카리와 익스피디아 전용이에요.
+    그리고 요금관리 그리드에서 아고다 <b>요금 입력칸은 disabled</b>입니다 —
+    값은 요금세트가 정하므로, 특정 날짜만 바꾸려면 그 날짜의 세트를 바꿔야 합니다.
+    아고다에서 임시 요금을 걸려면 미사용 세트(W4 등)를 쓰거나 아고다용 세트를 새로 만드세요.
+  </div>
+
+  <h2>입금가 환산 — 지금 CMS로 얼마가 들어오나</h2>
+  <p class="sub">아고다 스탠다드 Room Only 기준. 보수 18% 적용. 하한은 40,000원입니다.</p>
+  <section class="card"><div class="scroll"><table id="payTable">
+    <thead></thead><tbody></tbody></table></div></section>
+  <p style="font-size:12.5px;color:var(--text-faint);max-width:70ch">
+    Σ 65%는 International Rate가 붙는 해외 손님, Σ 54.37%는 2026-08-23 한국 IP에서 실측한 값입니다.
+    어느 쪽이 실제 다수인지는 아직 판정 전이라 둘 다 적었습니다.</p>
+</main>
+</div>
+<div class="page" id="pg-measured" hidden>
+<main class="doc">
+  <h1>실측 기록</h1>
+  <p class="lede">계산이 맞는지 확인한 것들. 추정은 없습니다 — 전부 화면에서 읽은 숫자이고,
+    출처와 조회일을 같이 적었습니다. 확인 못 한 건 맨 아래에 따로 모았습니다.</p>
+
+  <h2>노출가 3점 테스트 <span class="badge live">2026-08-23</span></h2>
+  <p class="sub">CMS를 건드리지 않고 검증했습니다. 10/28·10/30·10/31이 이미 CMS 값이 다르고
+    (160,000 / 190,000 / 220,000) 같은 주라 프로모션 조건이 같아서, 그 자체가 3점 테스트가 됩니다.</p>
+
+  <h3>결정적 증거 — 메가세일 할인액</h3>
+  <section class="card"><div class="scroll"><table id="megaTable"><thead></thead><tbody></tbody></table></div></section>
+  <div class="call ok">
+    <span class="lbl">이게 증명하는 것</span>
+    메가세일 10%가 <b>세전 금액</b>에 정확히 붙습니다. 세 날짜 모두 <b>원 단위까지</b> 맞았어요. 따라서 —
+    <br>① 아고다 할인은 세전에 붙고 세금 배수는 정확히 <b>1.1</b>이다.
+    <br>② 할인의 기준값은 <b>Room Only 요금</b>이다. 조식 요금이 아니다.
+  </div>
+
+  <h3>노출가 — 예측 vs 실측</h3>
+  <section class="card"><div class="scroll"><table id="dispTable"><thead></thead><tbody></tbody></table></div></section>
+  <div class="call ok">
+    <span class="lbl">선형이다</span>
+    세 점 모두 오차 <b>±1원</b>:
+    <code class="mono">원래요금(세전) = 0.458352 × (CMS ÷ 1.1) − 343</code>
+    <br>노출가는 CMS에 정확히 비례합니다. 계산기 구조 자체는 맞습니다.
+  </div>
+
+  <h2>다만 두 가지가 남았습니다</h2>
+
+  <h3>① 지역 타겟팅 — 실제 예약으로 확인됨 <span class="badge live">해결</span></h3>
+  <div id="evidence"></div>
+
+  <div class="call warn">
+    <span class="lbl">① 한국 IP에서는 지역 프로모션이 안 보인다</span>
+    실측 Σ 54.37%는 MG 35 + 메가세일 10 + 얼리버드 10 = <b>55%</b>와 0.63%p 차이입니다.
+    즉 International Rate가 빠진 값이에요. <b>한국 IP에서 조회했기 때문</b>으로 보입니다.
+    아고다는 접속 국가로 노출가를 정하고, URL을 <code class="mono">en-us</code>로 바꿔도
+    <code class="mono">ko-kr</code>로 되돌아옵니다 — <b>국내에서는 확인할 방법이 없습니다.</b>
+    <br><br>다만 <b>위 예약이 답을 줬습니다</b> — 미국 손님에게는 US (IP only) 10%가 실제로 붙습니다.
+    한국에서 본 54.37%는 "국내 손님이 보는 값"이고, 외국 손님은 Σ가 10%p 더 높습니다.
+    평택은 외국인 비중이 높은 상권이니 <b>실제 입금가는 Σ 65% 쪽에 가깝다고 보는 게 안전합니다.</b>
+    남은 건 국내 대 해외 예약 비율뿐입니다.
+  </div>
+
+  <div class="call bad">
+    <span class="lbl">② 쿠폰(AGODA_SPONSORED) — Σ에 없는 추가 차감</span>
+    노출가에서 한 번 더 깎입니다. 이름상 아고다가 자기 돈으로 얹는 쿠폰으로 보이지만
+    <b>정산서로 확인하지 않았습니다.</b> 우리 부담이면 CMS의 6~9%가 더 빠집니다.
+  </div>
+  <section class="card"><div class="scroll"><table id="coupTable"><thead></thead><tbody></tbody></table></div></section>
+
+  <h2>지금까지 검증된 것</h2>
+  <div class="tiles">
+    <div class="tile ok"><div class="k">입금가 공식</div><div class="v">5 / 5</div>
+      <div class="n">실제 예약 5건 원 단위 일치. 곱셈 모델은 폐기</div></div>
+    <div class="tile ok"><div class="k">보수 18%</div><div class="v">15 / 15</div>
+      <div class="n">정산 거래 30행 · 예약 20건 대조</div></div>
+    <div class="tile ok"><div class="k">Maximum Gain 35%</div><div class="v">28일</div>
+      <div class="n">날짜 전수 + 예약 7건. 값이 안 흔들림</div></div>
+    <div class="tile ok"><div class="k">노출가 계수</div><div class="v">±1원</div>
+      <div class="n">3개 날짜 선형 적합 오차</div></div>
+  </div>
+
+  <h2>검증 경로 — 다음에 또 볼 때</h2>
+  <p class="sub">같은 걸 다시 확인하려면 이 순서로. 함정 칸은 실제로 한 번씩 빠졌던 것들입니다.</p>
+  <section class="card"><div class="scroll"><table>
+    <thead><tr><th>보려는 것</th><th>어디서</th><th>방법</th><th>함정</th></tr></thead>
+    <tbody>
+      <tr><td>아고다가 든 기준요금</td><td>포털 ARI 캘린더</td>
+        <td class="mono" style="font-size:11.5px">/mldc/ko-kr/app/ari/calendar/5834782<br>?startDate=2026-10-28&amp;endDate=2026-10-28</td>
+        <td>객실 필터 기본값이 1개다. 전체 선택 후 적용해야 7개가 다 보인다</td></tr>
+      <tr><td>소비자 노출가</td><td>아고다 소비자 페이지</td>
+        <td class="mono" style="font-size:11.5px">agoda.com/ko-kr/pyeongtaek-stay-hotel/…<br>?checkIn=…&amp;los=1&amp;adults=2&amp;finalPriceView=1</td>
+        <td style="background:var(--warn-soft)"><b>객실 그리드는 크롬 탭이 화면 앞에 있어야 렌더링된다.</b>
+          백그라운드면 DOM이 비어서 '0건'으로 오독한다. 스크린샷·클릭으로 탭을 깨운 직후에 읽어야 한다</td></tr>
+      <tr><td>프로모션 실제 적용 내역</td><td>포털 예약 상세</td><td>예약 목록 → 개별 예약 → 프로모션 내역</td>
+        <td>실제 예약이 있어야 한다. 가상 조회로는 안 된다</td></tr>
+      <tr><td>CMS가 보낸 값</td><td>WINGSCMS 요금관리</td><td class="mono" style="font-size:11.5px">cm03_0200 → 상품그룹 행</td>
+        <td>아고다 요금 입력칸은 disabled다. 값은 요금세트가 정한다</td></tr>
+    </tbody>
+  </table></div></section>
+
+  <h2>아직 확인 못 한 것</h2>
+  <ul class="todo">
+    <li>국내 예약 대 해외 예약 비율 — Σ 54% 대 65% 중 어느 쪽으로 잡을지 결정하는 값. 예약 목록의 투숙객 거주 국가로 집계.</li>
+    <li><b>쿠폰(AGODA_SPONSORED) 부담 주체</b> — 다음 정산서에서 확인.</li>
+    <li>보수 38% 실제 정산 여부 (8/28~9/1 투숙분), 보수 20%(AGX 2%) 실측 — 9월 초 정산서.</li>
+    <li>AGX 고급옵션 '마감 임박 예약 수수료 2배' on/off — 켜져 있으면 임박 예약 보수 +2%p.</li>
+    <li>아고다 인텔리전스 프로그램 수수료 할인율 — 보수를 낮추는 유일한 경로.</li>
+    <li>AGP 8% → 17% 전환 조건 — 보수의 절반을 차지하는 가장 큰 레버.</li>
+    <li>프로모션 할인율의 상·하한 — 포털에 표기 없음. 실사용 범위는 5~45%.</li>
+    <li>미매핑 객실 96개 전체 목록과 삭제 요청.</li>
+  </ul>
+</main>
+</div>
+<div class="page" id="pg-status" hidden>
+<main class="doc">
+  <h1>현재 설정</h1>
+  <p class="lede">지금 무엇이 켜져 있고 무엇이 문제인지. 값은 <b>2026-08-23 조회</b> 기준이고,
+    사용자가 언제든 바꾸므로 쓰기 전에는 다시 읽어야 합니다.</p>
+
+  <div id="chtabs-status"></div>
+  <div id="chBody-status"></div>
+
+  <h2 id="agoda-promo">아고다 — 적용 중인 프로모션</h2>
+  <p class="sub">전체 51개 중 6개만 켜져 있습니다. 나머지 45개는 중지 상태.</p>
+  <section class="card"><div class="scroll"><table>
+    <thead><tr><th>프로모션</th><th>ID</th><th>종류</th><th>%</th><th>조건</th></tr></thead>
+    <tbody>
+      <tr><td><b>Maximum Gain</b> <span style="color:var(--text-faint)">= Beds Network</span></td><td class="mono">—</td><td>제휴망</td><td class="mono"><b>35</b></td>
+        <td>항상 얹힘. <b>끄는 게 아니라 Static 플랜과 택일</b>입니다 — on/off 토글은 없어요</td></tr>
+      <tr><td>International Rate</td><td class="mono">21</td><td>타겟팅 · 지역</td><td class="mono">10</td>
+        <td>해외 IP. 미국 IP면 US (IP only)로 <b>대체</b>됩니다</td></tr>
+      <tr><td>US (IP only)</td><td class="mono">5144</td><td>타겟팅 · 지역</td><td class="mono">10</td>
+        <td>미국 IP 접속자만. International Rate와 <b>택일</b>이지 중복이 아닙니다</td></tr>
+      <tr><td>얼리버드 - 2026년 7월</td><td class="mono">218671761</td><td>알뜰</td><td class="mono">10</td>
+        <td>리드타임 <b>6일 이상</b>일 때만 (5일은 미적용, 실측 확인)</td></tr>
+      <tr><td>메가 세일</td><td class="mono">2222</td><td>시즌</td><td class="mono">10</td>
+        <td><b>판매 기간</b> 기준 — 투숙일이 아닙니다. 8/22~8/31, 다음은 11/16~11/30</td></tr>
+      <tr><td>VIP 사전 판매 - 메가 세일</td><td class="mono">2221</td><td>시즌</td><td class="mono">5</td><td>11/12~11/15</td></tr>
+      <tr><td>24시간 한정 깜짝 할인</td><td class="mono">2223</td><td>시즌</td><td class="mono">10</td><td>11/27</td></tr>
+    </tbody>
+  </table></div></section>
+
+  <div class="call">
+    <span class="lbl">중복 규칙 — 개수가 아니라 카테고리를 센다</span>
+    아고다 포털 원문: <i>"알뜰 프로모션, 시즌 프로모션 1개, 그리고 각 타겟팅 프로모션 카테고리(예: 플랫폼, 멤버십)별
+    프로모션 1개와 함께 중복 적용될 수 있습니다."</i>
+    <br><br><code class="mono">Σ = MG 35 + 시즌(최대 1) + 타겟팅(카테고리당 1) + 알뜰(무제한)</code>
+    <br><br>시즌 프로모션을 세 개 켜도 예약엔 <b>하나만</b> 붙습니다. 그래서 겹쳐 켜는 게 공짜예요.
+    <b>위험한 건 알뜰뿐입니다</b> — 개수 제한이 없어서 얼리버드+마감임박+장기투숙을 다 켜면 25%p가 한꺼번에 빠집니다.
+  </div>
+
+  <h2>아고다 — 보수 구성</h2>
+  <section class="card"><div class="scroll"><table id="commTable"><thead></thead><tbody></tbody></table></div></section>
+  <div class="call warn">
+    <span class="lbl">AGX는 4%가 분기점</span>
+    슬라이더 범위는 <b>1~40%</b>이고 지금은 2%입니다. 순위 곡선을 전수로 읽어보면
+    0%→5위 / 1%→4위 / 2%→2위 / 3%→2위 / <b>4%→1위</b> / 6~40%→1위 —
+    <b>4%가 순위 1위의 최소값이고 그 위는 낭비</b>입니다. 2→4%는 1박당 1,710원이 더 나갑니다.
+  </div>
+
+  <h2>점검에서 걸린 것</h2>
+  <div class="tiles">
+    <div class="tile bad"><div class="k">조식이 룸온리보다 싸다</div><div class="v">0.70 / 0.72</div>
+      <div class="n">7개 객실 전부. 같은 Σ면 조식 상품이 먼저 하한을 깬다</div></div>
+    <div class="tile bad"><div class="k">미매핑 객실</div><div class="v">96 / 140</div>
+      <div class="n">매핑 44개. 남의 요금이 우리 페이지에 섞여 보인다</div></div>
+    <div class="tile warn"><div class="k">사진 태그 누락</div><div class="v">27 / 57</div>
+      <div class="n">디럭스 더블룸 16장 중 15장이 태그 없음</div></div>
+    <div class="tile warn"><div class="k">청결 점수</div><div class="v">7.2</div>
+      <div class="n">전체 7.7 · 위치 8.7이 최고, 청결이 최저</div></div>
+  </div>
+  <ul class="todo">
+    <li><b>조식 요금세트</b> — 조식 그룹의 1224 / 1231 컬럼 14칸이 비율 복사 후 수기 보정되지 않았습니다.</li>
+    <li><b>알뜰 프로모션 중복 정리</b> — 36개가 겹쳐 있습니다 (마감임박 6 / 맞춤형 6 / 장기투숙 7 / 주간숙박 5 / 월간숙박 5 / 얼리버드 3).</li>
+    <li><b>미매핑 96개</b> — 객실 매핑 → 기타 조치 → 매핑 문제 신고 → "보유하고 있지 않으므로 삭제". 일괄 처리가 없어 아고다 팀이 건별로 처리합니다.</li>
+    <li><b>최신 리뷰 미답변</b> — 답변이 컨텐츠 점수에 들어갑니다.</li>
+  </ul>
+
+  <h2>채널 확장 로드맵</h2>
+  <p class="sub">아고다에서 세운 구조를 그대로 다른 채널에 적용합니다.
+    각 채널마다 확인해야 할 것이 정해져 있고, 그게 채워지면 계산기가 열립니다.</p>
+  <div id="roadmap"></div>
+
+  <div class="call">
+    <span class="lbl">채널을 추가하는 법</span>
+    <code class="mono">assets/channels.js</code> 한 파일만 고치면 됩니다. 그 채널의
+    <code class="mono">status</code>를 <code class="mono">"live"</code>로 바꾸고
+    보수·세금·프로모션 구조를 채우면 계산기 탭이 활성화됩니다.
+    <b>모르는 값은 <code class="mono">null</code>로 두세요</b> — 추정치를 넣으면 틀린 답이 나갑니다.
+  </div>
+
+  <h2>사용자가 정한 선</h2>
+  <div class="call bad">
+    <ul style="margin:0;padding-left:18px">
+      <li>입금가 <b>40,000원 미만 절대 금지</b></li>
+      <li>토요일 65,000원 수준 / 일·월 43,000~46,000원</li>
+      <li>일요일 요금은 OCC를 보며 직접 조정 — 임의로 건드리지 않는다</li>
+      <li>돈에 영향이 가거나 되돌리기 어려운 조작은 화면만 준비하고 멈춘다. <b>버튼은 사용자가 누른다</b></li>
+    </ul>
+  </div>
+</main>
+</div>
+
+<script>
+/* ══════════════════════════════════════════════════════════════
+   채널 데이터 — 이 파일만 고치면 채널이 늘어난다.
+
+   status
+     "live"     계산까지 검증 완료. 계산기에서 선택 가능.
+     "partial"  CMS 구조는 파악, 입금가 공식 미검증. 계산기에서 경고와 함께 선택 가능.
+     "planned"  CMS 상품 매핑만 확인. 계산기 비활성.
+
+   숫자는 전부 실측이다. 모르는 값은 null 로 두고 절대 추정치를 넣지 마라.
+   조회일이 바뀌면 각 채널의 asOf 를 갱신할 것.
+   ══════════════════════════════════════════════════════════════ */
+
+const HOTEL = { name: "평택 스테이 호텔", floor: 40000 };
+
+/* CMS 요금세트 값 — 스탠다드 기준, 2026-08-23 조회.
+   요일이 아니라 날짜에 세트가 붙는다. 아래는 세트의 대표값일 뿐이다. */
+const RATE_SET_VALUES = { WEEK: 160000, FRI: 190000, SAT: 220000, SUN: 170000 };
+
+/* 채널별 CMS — 스탠다드, 2026-08-23 조회 (10/26~11/09 구간에서 읽음).
+   같은 객실을 채널마다 얼마에 보내고 있는지. 커미션·프로모션 구조가 달라서
+   CMS가 다른 게 정상이지만, 차이가 이 정도로 벌어져 있다는 건 알고 있어야 한다. */
+const CHANNEL_CMS = {
+  domestic: { WEEK:  70000, FRI:  80000, SAT: 100000 },
+  expedia:  { WEEK: 110000, FRI: 140000, SAT: 155000 },
+  booking:  { WEEK: 121000, FRI: 132000, SAT: 140000 },
+  trip:     { WEEK: 145000, FRI: 180000, SAT: 210000 },
+  agoda:    { WEEK: 160000, FRI: 190000, SAT: 220000 },
+};
+/* 조식 그룹은 별도 상품그룹으로 붙는다 */
+const BREAKFAST_CMS = {
+  "아고 조식 1인":   { WEEK: 112000, FRI: 133000, SAT: 154000 },
+  "아고 조식 2인":   { WEEK: 115200, FRI: 136800, SAT: 158400 },
+  "트립 조식 2인":   { WEEK: 170000, FRI: 205000, SAT: null },
+};
+
+const CHANNELS = {
+
+  /* ─────────────────────────────────────────── 아고다 */
+  agoda: {
+    key: "agoda", name: "아고다", en: "Agoda",
+    status: "live", asOf: "2026-08-23",
+    propertyId: "5834782",
+    cmsGroups: ["아고다 (9642920501)", "아고 조식 1인", "아고 조식 2인"],
+
+    tax: 1.1,
+    taxNote: "할인은 세전 금액에 붙는다. 노출가 × 1.1 = 고객 결제. 메가세일 할인액이 (CMS÷1.1)×10%와 원 단위로 일치해 확정.",
+
+    rateSets: ["WEEK","FRI","SAT","SUN","1224","1231","F1","F2","W1","W2","W3","W4","S1","S2"],
+    rateSetNote: "test · A · 8wek 세트는 이 채널에 없다 (부킹·히카리, 익스 전용).",
+    rateInputEditable: false,
+    rateInputNote: "요금관리 그리드의 요금 입력칸은 disabled. 값은 요금세트가 정한다.",
+
+    /* 요금제 — ratio 는 Room Only 대비 비율. 2026-08-23 ARI 실측, 7개 객실 예외 없음 */
+    products: [
+      { name: "Room Only (연박 가능)",      id: "10095865", ratio: 1.00 },
+      { name: "Room Only (연박 불가)",      id: "21070762", ratio: 1.00 },
+      { name: "BREAKFAST ( FOR 2 PERSON)",  id: "8193723",  ratio: 0.72 },
+      { name: "BREAKFAST ( FOR 1 PERSON )", id: "2276544",  ratio: 0.70 },
+    ],
+
+    /* 객실 — 2026-10-28 ARI 실측 Room Only 기준요금(세금포함) */
+    rooms: [
+      { name: "스탠다드",         id: "64532268",   ro: 160000, bf1: 112000, bf2: 115200 },
+      { name: "Premium",          id: "64532322",   ro: 170000, bf1: 119000, bf2: 122400 },
+      { name: "디럭스 더블룸",     id: "1188254696", ro: 180000, bf1: null,   bf2: 129600 },
+      { name: "패밀리 트윈",      id: "64532296",   ro: 210000, bf1: 147000, bf2: 151200 },
+      { name: "로얄 스위트 더블", id: "64539398",   ro: 210000, bf1: null,   bf2: 151200 },
+      { name: "패밀리 트리플",    id: "64537627",   ro: 250000, bf1: null,   bf2: 180000 },
+      { name: "파티 스위트",      id: "64540015",   ro: 260000, bf1: null,   bf2: 187200 },
+    ],
+
+    commission: {
+      total: 18,
+      parts: [
+        { name: "계약 수수료",       cur: 10, range: "고정" },
+        { name: "AGP",               cur: 8,  range: "무료 체험 / 8 / 17 — 포털에 조작 수단 없음" },
+        { name: "AGX 캠페인 #1455190", cur: 2, range: "1 ~ 40 (4%가 순위 1위 최소값, 그 위는 낭비)" },
+        { name: "Sponsored Listing", cur: 0,  range: "미적용 · Top 3 = 10.3 / Top 15 = 7.2" },
+      ],
+      note: "8/28~9/1 투숙분은 38%일 수 있다 (구 AGX 20% 캠페인). 9월 정산서가 판정 시점.",
+    },
+
+    /* 중복 규칙 — 아고다 포털 원문 기준. 카테고리를 세지 개수를 세지 않는다. */
+    dupRule: "시즌 최대 1개 · 타겟팅은 카테고리당 1개 · 알뜰은 개수 제한 없음 · Maximum Gain은 항상 얹힘",
+
+    sigmaTheory: 65,
+    sigmaMeasured: 54.37,
+    measuredNote: "한국 IP 조회. International Rate 10%가 안 붙은 값이다.",
+
+    /* ★ 실제 예약으로 확인 — 지역 타겟팅은 손님 국적에 따라 실제로 붙는다 */
+    bookingEvidence: {
+      id: "685235275",
+      guestCountry: "미국",
+      booked: "2026-08-02", stay: "2026-08-04", leadDays: 2,
+      room: "스탠다드 - 주차불가", plan: "Room Only (연박 불가)",
+      baseRate: 67500,
+      promos: ["Maximum Gain", "US (IP only)", "Hot Deal - 27-Jul-2026"],
+      note: "미국 거주 손님에게 US (IP only)가 실제로 붙었다. 한국 IP 조회에서 지역 프로모션이 " +
+            "빠져 보였던 이유가 이것으로 설명된다. 얼리버드는 리드타임 2일이라 미적용(6일 조건과 일치), " +
+            "메가세일은 8/2 예약이라 미적용(판매기간 8/22~와 일치) — 두 규칙 모두 실제 예약에서 재확인됐다.",
+    },
+
+    extraDeduction: {
+      name: "쿠폰(AGODA_SPONSORED)",
+      range: "노출가의 14 ~ 16%",
+      bearer: null,
+      note: "이름상 아고다 부담이나 정산서 미확인. 우리 부담이면 입금가가 그만큼 더 빠진다.",
+    },
+  },
+
+  /* ─────────────────────────────────────────── 부킹닷컴 */
+  booking: {
+    key: "booking", name: "부킹닷컴", en: "Booking.com",
+    status: "planned", asOf: "2026-08-23",
+    propertyId: "4776615",
+    cmsGroups: ["부킹,히카리 (163793613101)"],
+    tax: null, taxNote: null,
+    rateSets: ["WEEK","FRI","SAT","SUN","1224","1231","8wek","F2","A","test"],
+    rateSetNote: "★ test 세트가 여기 있다. 임시 요금 실험을 하려면 이 채널이 편하다.",
+    rateInputEditable: null, rateInputNote: null,
+    products: [
+      { name: "ROOM ONLY - Standard", id: null, ratio: null },
+      { name: "Hikari global - Standard", id: null, ratio: null },
+    ],
+    rooms: [], commission: null, dupRule: null,
+    sigmaTheory: null, sigmaMeasured: null, extraDeduction: null,
+    todo: [
+      "커미션 구조 (기본 15%? Preferred/Genius 가산 여부)",
+      "Genius · Mobile rate · Country rate 가 Σ처럼 더해지는지 곱해지는지",
+      "부가세·봉사료 처리 — 아고다처럼 세전에 할인이 붙는지",
+      "익스트라넷 캘린더에서 CMS 값이 그대로 보이는지",
+    ],
+  },
+
+  /* ─────────────────────────────────────────── 익스피디아 */
+  expedia: {
+    key: "expedia", name: "익스피디아", en: "Expedia",
+    status: "planned", asOf: "2026-08-23",
+    propertyId: "30531203",
+    cmsGroups: ["익스 (161898078101)"],
+    tax: null, taxNote: null,
+    rateSets: ["WEEK","FRI","SAT","SUN","1224","1231","8wek","F2","A","test"],
+    rateSetNote: "부킹과 같은 세트 묶음을 쓴다. test 세트 있음.",
+    rateInputEditable: null, rateInputNote: null,
+    products: [ { name: "Room Only - Standard", id: null, ratio: null } ],
+    rooms: [], commission: null, dupRule: null,
+    sigmaTheory: null, sigmaMeasured: null, extraDeduction: null,
+    todo: [
+      "커미션 — Expedia Collect vs Hotel Collect 구분",
+      "Member Only Deal · Package rate 의 할인 누적 방식",
+      "Accelerator(입찰) 가 보수에 얹히는 구조인지",
+      "Partner Central 의 '순 요금' 표기가 CMS 값과 같은지",
+    ],
+  },
+
+  /* ─────────────────────────────────────────── 트립닷컴 */
+  trip: {
+    key: "trip", name: "트립닷컴", en: "Trip.com",
+    status: "planned", asOf: "2026-08-23",
+    propertyId: null,
+    cmsGroups: ["트립 (162610309001)", "트립 조식 2인 (163971817701)"],
+    tax: null, taxNote: null,
+    rateSets: ["WEEK","FRI","SAT","SUN","1224","1231","F2","W1","W2","W3","W4","W5","W6","F1","S1","S2"],
+    rateSetNote: "아고다와 비슷한 세트 묶음. W5·W6가 더 있고 test·A·8wek는 없다.",
+    rateInputEditable: null, rateInputNote: null,
+    products: [
+      { name: "환불불가 - Standard", id: null, ratio: null },
+      { name: "Room Only - Standard", id: null, ratio: null },
+      { name: "Room Only - Room", id: null, ratio: null },
+      { name: "2인 조식 - Standard", id: null, ratio: null },
+    ],
+    rooms: [], commission: null, dupRule: null,
+    sigmaTheory: null, sigmaMeasured: null, extraDeduction: null,
+    todo: [
+      "커미션 구조",
+      "Trip.com 은 환불불가 상품이 따로 있다 — 요금 차이가 CMS에서 오는지 채널에서 오는지",
+      "조식 2인 상품이 별도 그룹이다. 아고다처럼 고정 비율인지 확인",
+      "eBooking 캘린더에서 CMS 값 대조",
+    ],
+  },
+
+  /* ─────────────────────────────────────────── 국내 OTA */
+  domestic: {
+    key: "domestic", name: "국내 OTA", en: "야놀자 · 여기어때",
+    status: "planned", asOf: "2026-08-23",
+    propertyId: null,
+    cmsGroups: ["국내 OTA (160259612101)"],
+    tax: null, taxNote: null,
+    rateSets: ["WEEK","FRI","SAT","8wek","FRI30","SAT30","1224","1231","SUN","W1","W2","S1","F1","S2","W3"],
+    rateSetNote: "FRI30 · SAT30 은 이 채널에만 있다.",
+    rateInputEditable: null, rateInputNote: null,
+    products: [
+      { name: "야놀자(모텔) - 스탠다드", id: null, ratio: null },
+      { name: "야놀자(모텔) - 스탠다드 + 조식 1인", id: null, ratio: null },
+      { name: "야놀자(모텔) - 도보특가 + 조식 1인", id: null, ratio: null },
+      { name: "야놀자(모텔) - 도보특가", id: null, ratio: null },
+      { name: "여기어때 - Standard", id: null, ratio: null },
+      { name: "야놀자 - 룸랜덤 배정(선착순 당일 특가)", id: null, ratio: null },
+      { name: "야놀자 - Standard(룸온리, 런더리, 휘트니스)", id: null, ratio: null },
+    ],
+    rooms: [], commission: null, dupRule: null,
+    sigmaTheory: null, sigmaMeasured: null, extraDeduction: null,
+    todo: ["커미션 구조", "쿠폰·포인트 부담 주체", "도보특가 상품의 요금 결정 방식"],
+  },
+};
+
+const CHANNEL_ORDER = ["agoda", "booking", "expedia", "trip", "domestic"];
+
+</script>
+
+<script>
+const STATUS_LABEL = { live: "검증 완료", partial: "일부 검증", planned: "예정" };
+function statusBadge(s) { return `<span class="badge ${s}">${STATUS_LABEL[s]}</span>`; }
+const WON = n => (n === null || n === undefined) ? "—" : Math.round(n).toLocaleString("ko-KR");
+
+function renderChannelTabs(mountId, current, onPick, opts) {
+  const allowPlanned = !!(opts && opts.allowPlanned);
+  const el = document.getElementById(mountId);
+  if (!el) return;
+  el.className = "chtabs";
+  el.innerHTML = CHANNEL_ORDER.map(k => {
+    const c = CHANNELS[k];
+    const off = !allowPlanned && c.status === "planned";
+    return `<button class="chtab" data-k="${k}" data-status="${c.status}"
+      aria-pressed="${k === current}" ${off ? "disabled" : ""}
+      title="${off ? "아직 계산 검증 전입니다" : c.en}"><i class="dot"></i>${c.name}</button>`;
+  }).join("");
+  el.querySelectorAll(".chtab").forEach(b => { b.onclick = () => onPick(b.dataset.k); });
+}
+</script>
+
+<script>
+/* ── 계산기 ── */
+(function(){
+"use strict";
+const FLOOR = 40000;
+
+/* 프로모션 — 아고다 중복 규칙을 UI가 강제한다.
+   single: 그 그룹에서 최대 1개 (라디오)  |  multi: 개수 제한 없음 (체크박스) */
+const GROUPS = [
+  { key:"core", name:"성과 극대화", rule:"항상 적용 · 예약마다 붙는다", mode:"locked",
+    items:[{id:"mg", nm:"Maximum Gain", tag:"28일 전수", pct:35, on:true}] },
+
+  { key:"season", name:"시즌 프로모션", rule:"여러 개 켜도 예약엔 1개만 붙는다 · 할인율은 우리가 정한다", mode:"single", scroll:true,
+    items:[
+      {id:"s0", nm:"없음", pct:0},
+      {id:"s2222", nm:"메가 세일", tag:"2222 · 적용 중", pct:10, on:true},
+      {id:"s2221", nm:"VIP 사전 판매 - 메가 세일", tag:"2221 · 11/12~15", pct:5},
+      {id:"s2223", nm:"24시간 한정 깜짝 할인", tag:"2223 · 11/27", pct:10},
+      {id:"sbye", nm:"Bye-Bye Summertime", tag:"8/26~9/1", pct:15},
+      {id:"shot", nm:"Hot Deal", tag:"8/23", pct:15},
+      {id:"smid", nm:"월간 중순 세일", tag:"8/23~25", pct:15},
+      {id:"smn", nm:"[Flash] Midnight Madness", tag:"0~3시", pct:15},
+      {id:"snd", nm:"[Flash] Noon Dash Deals", tag:"14~18시", pct:15},
+      {id:"sol", nm:"올빼미 세일", tag:"365 · 심야", pct:20},
+      {id:"sab", nm:"Deals Abroad", tag:"462 · 해외", pct:15},
+      {id:"s794", nm:"미리 예약하고 더 저렴하게", tag:"794", pct:20},
+      {id:"s795", nm:"3박한 특가", tag:"795", pct:20},
+      {id:"s3", nm:"깜짝 할인 수요 특가", tag:"3 · 수요일", pct:20},
+      {id:"s4", nm:"월급날 세일", tag:"4 · 8/27~31", pct:20},
+      {id:"sdd", nm:"더블 데이 메가 세일", tag:"141 · 9/2~15", pct:10},
+      {id:"smp", nm:"Maple Week", tag:"9/7~20", pct:10},
+      {id:"ssg", nm:"Agoda Save & Go", tag:"9/17~30", pct:10},
+      {id:"shw", nm:"할로윈 세일", tag:"10/24~11/6", pct:15},
+      {id:"sbf", nm:"블랙 프라이데이 세일", tag:"11/17~30", pct:15},
+      {id:"sye", nm:"연말 세일", tag:"12/1~14", pct:15},
+      {id:"sxm", nm:"크리스마스 세일", tag:"12/18~31", pct:15},
+    ]},
+
+  { key:"tRegion", name:"타겟팅 · 지역", rule:"카테고리당 1개", mode:"single",
+    items:[
+      {id:"r0", nm:"없음", pct:0},
+      {id:"r21", nm:"International Rate", tag:"21 · 적용 중", pct:10, on:true},
+      {id:"r5144", nm:"US (IP only)", tag:"5144 · 적용 중", pct:10},
+      {id:"rasia", nm:"Asia (IP only)", pct:10},
+      {id:"rdom", nm:"Domestic", tag:"평택 손님 100%", pct:10},
+      {id:"rchn", nm:"China", pct:10},
+      {id:"rgl", nm:"GoLocal Tonight", tag:"당일 체크인", pct:10},
+    ]},
+
+  { key:"tPlat", name:"타겟팅 · 플랫폼", rule:"카테고리당 1개", mode:"single",
+    items:[
+      {id:"p0", nm:"없음", pct:0, on:true},
+      {id:"pmob", nm:"Mobile", tag:"예약 50%+", pct:10},
+      {id:"ppkg", nm:"Package", tag:"호텔+항공", pct:10},
+    ]},
+
+  { key:"tMem", name:"타겟팅 · 멤버십", rule:"카테고리당 1개", mode:"single",
+    items:[
+      {id:"m0", nm:"없음", pct:0, on:true},
+      {id:"mpriv", nm:"Private Sale", tag:"로그인 고객", pct:10},
+      {id:"mpt", nm:"VIP Platinum", tag:"2년 10건+", pct:10},
+      {id:"mgd", nm:"VIP Gold", tag:"2년 5건+", pct:10},
+      {id:"msv", nm:"VIP Silver", tag:"2년 2건+", pct:10},
+    ]},
+
+  { key:"tEtc", name:"타겟팅 · 기타", rule:"카테고리당 1개", mode:"single",
+    items:[
+      {id:"e0", nm:"없음", pct:0, on:true},
+      {id:"eeco", nm:"Eco Deals", tag:"아고다·WWF", pct:10},
+    ]},
+
+  { key:"saver", name:"알뜰 프로모션", rule:"개수 제한 없음 — 전부 더해진다", mode:"multi", scroll:true,
+    items:[
+      {id:"a218671761", nm:"얼리버드 (리드타임 6일↑)", tag:"218671761 · 적용 중", pct:10, on:true},
+      {id:"a213111900", nm:"마감 임박", tag:"213111900", pct:10},
+      {id:"a209167987", nm:"장기 투숙 3박↑", tag:"209167987", pct:5},
+      {id:"a209167986", nm:"장기 투숙 7박↑", tag:"209167986", pct:8},
+      {id:"a209167985", nm:"장기 투숙 28박↑", tag:"209167985", pct:10},
+      {id:"a213082527", nm:"주간 숙박 (7박)", tag:"213082527", pct:5},
+      {id:"a213082528", nm:"월간 숙박 (28박)", tag:"213082528", pct:5},
+      {id:"a212904620", nm:"맞춤형", tag:"212904620", pct:5},
+      {id:"a219087338", nm:"객실 점유율", tag:"219087338", pct:10, risk:true},
+    ]},
+];
+
+const COMM = {
+  contract: 10,
+  agp: 8,          // 무료 0 / 8 / 17
+  agxOn: true, agx: 2,   // 1~40
+  sl: 0,           // 0 / 7.2 / 10.3
+};
+
+/* WINGSCMS 2026-08-23 실측 */
+const DAYS = [
+  {d:"월~목", set:"WEEK", cms:160000, tgt:45000},
+  {d:"월~목", set:"W3",   cms:175000, tgt:45000},
+  {d:"금",    set:"FRI",  cms:190000, tgt:55000},
+  {d:"토",    set:"SAT",  cms:220000, tgt:65000},
+  {d:"일",    set:"SUN",  cms:140000, tgt:45000},
+  {d:"일",    set:"WEEK", cms:160000, tgt:45000},
+];
+
+let mode = "reverse";
+let roundUnit = 5000;
+const state = {};
+GROUPS.forEach(g => {
+  if (g.mode === "multi") {
+    g.items.forEach(it => state[it.id] = { on: !!it.on, pct: it.pct });
+  } else {
+    const on = g.items.find(i => i.on) || g.items[0];
+    state[g.key] = { sel: on.id };
+    g.items.forEach(it => state[it.id] = { pct: it.pct });
+  }
+});
+
+const won = n => Math.round(n).toLocaleString("ko-KR");
+const ceilTo = (n,u) => Math.ceil(n/u)*u;
+const num = s => Number(String(s).replace(/[^\d.-]/g,"")) || 0;
+
+/* ── 실측 ──────────────────────────────────
+   2026-08-23 조회. 스탠다드 Room Only, 소비자 페이지 vs 포털 ARI 캘린더.
+   메가세일 할인액이 (CMS÷1.1)×10% 와 원 단위까지 일치 → 기준값·세전 규칙 확정. */
+const MEAS = {
+  date: "2026-08-23 조회",
+  sigma: 54.37,              // 3개 날짜 평균 (54.400 / 54.364 / 54.336)
+  points: [
+    // 날짜, CMS, 원래요금(세전), 메가세일, 쿠폰
+    ["10/28 수", 160000, 66327, 14545,  9594],
+    ["10/30 금", 190000, 78826, 17273, 12078],
+    ["10/31 토", 220000, 91328, 20000, 14616],
+  ],
+};
+let useMeas = false;
+
+function theorySigma(){
+  let t = 0;
+  GROUPS.forEach(g => {
+    if (g.mode === "multi") {
+      g.items.forEach(it => { if (state[it.id].on) t += state[it.id].pct; });
+    } else {
+      const id = state[g.key].sel;
+      t += state[id] ? state[id].pct : 0;
+    }
+  });
+  return t;
+}
+function sigma(){ return useMeas ? MEAS.sigma : theorySigma(); }
+function commission(){
+  return COMM.contract + COMM.agp + (COMM.agxOn ? COMM.agx : 0) + COMM.sl;
+}
+const coef = () => (1 - sigma()/100) * (1 - commission()/100);
+
+/* ── 렌더: 프로모션 ── */
+function renderPromos(){
+  const root = document.getElementById("promoGroups");
+  root.innerHTML = "";
+  GROUPS.forEach(g => {
+    const wrap = document.createElement("div");
+    wrap.className = "grp" + (g.mode === "locked" ? " locked" : "");
+    let sum = 0;
+    if (g.mode === "multi") g.items.forEach(it => { if (state[it.id].on) sum += state[it.id].pct; });
+    else { const id = state[g.key] ? state[g.key].sel : g.items[0].id; sum = state[id] ? state[id].pct : 0; }
+    if (g.mode === "locked") sum = g.items[0].pct;
+
+    const head = document.createElement("div");
+    head.className = "grp-head";
+    head.innerHTML = `<span class="grp-name"></span><span class="rule"></span>
+      <span class="grp-sum mono">+${sum}%</span>`;
+    head.querySelector(".grp-name").textContent = g.name;
+    head.querySelector(".rule").textContent = g.rule;
+    if (sum === 0) head.querySelector(".grp-sum").style.color = "var(--text-faint)";
+    wrap.appendChild(head);
+
+    const opts = document.createElement("div");
+    opts.className = "opts" + (g.scroll ? " scroll-y" : "");
+    g.items.forEach(it => {
+      const isMulti = g.mode === "multi";
+      const on = g.mode === "locked" ? true
+               : isMulti ? state[it.id].on
+               : state[g.key].sel === it.id;
+      const row = document.createElement("label");
+      row.className = "opt" + (on && it.pct > 0 ? " on" : "") + (it.risk ? " risk" : "");
+      let inp;
+      if (g.mode === "locked"){
+        inp = document.createElement("span");
+        inp.className = "dot";
+        inp.setAttribute("role","img");
+        inp.setAttribute("aria-label","항상 적용됨");
+      } else {
+        inp = document.createElement("input");
+        inp.type = isMulti ? "checkbox" : "radio";
+        if (!isMulti) inp.name = g.key;
+        inp.checked = on;
+        inp.addEventListener("change", () => {
+          if (isMulti) state[it.id].on = inp.checked;
+          else state[g.key].sel = it.id;
+          recalc();
+        });
+      }
+      const nm = document.createElement("span");
+      nm.className = "nm"; nm.textContent = it.nm;
+      const tag = document.createElement("span");
+      tag.className = "id mono"; tag.textContent = it.tag || "";
+      const pct = document.createElement("input");
+      pct.type = "number"; pct.className = "pct mono"; pct.min = "0"; pct.max = "99"; pct.step = "1";
+      pct.value = state[it.id].pct;
+      pct.disabled = it.pct === 0 || g.mode === "locked";
+      if (g.mode === "locked") pct.removeAttribute("disabled"), pct.readOnly = true;
+      pct.setAttribute("aria-label", it.nm + " 할인율");
+      pct.addEventListener("input", () => {
+        state[it.id].pct = Math.max(0, Math.min(99, num(pct.value)));
+        recalc();
+      });
+      row.append(inp, nm, tag, pct);
+      opts.appendChild(row);
+    });
+    wrap.appendChild(opts);
+    root.appendChild(wrap);
+  });
+}
+
+/* ── 렌더: 보수 ── */
+function renderComm(){
+  const b = document.getElementById("commBody");
+  b.innerHTML = `
+    <div class="crow"><span class="lab">계약 수수료<small>고정</small></span>
+      <span class="val mono">10%</span></div>
+    <div class="crow"><span class="lab">AGP<small>아고다 성장 프로그램</small></span>
+      <select id="agp">
+        <option value="0">무료 체험 (0%)</option>
+        <option value="8">8%</option>
+        <option value="17">17%</option>
+      </select></div>
+    <div class="crow"><span class="lab"><label for="agxOn">AGX</label><small>순위 입찰 · 1~40%</small></span>
+      <input type="checkbox" id="agxOn" style="accent-color:var(--brass);width:16px;height:16px">
+      <input type="range" id="agx" min="1" max="40" step="1">
+      <span class="val mono" id="agxVal"></span></div>
+    <div class="crow"><span class="lab">광고 숙소<small>Sponsored Listing · 견적 기준</small></span>
+      <select id="sl">
+        <option value="0">미적용</option>
+        <option value="7.2">Top 15 (7.2%)</option>
+        <option value="10.3">Top 3 (10.3%)</option>
+      </select></div>
+    <p class="hint">기본값은 <b>지금 포털 설정</b>(계약 10 + AGP 8 + AGX 2 = 20%)입니다.
+      실제 정산에서 확인된 보수는 아직 <b>18%</b>뿐이고, AGX 2%는 대상 기간이 2026-08-30부터라
+      정산 사례가 0건입니다. 하한을 지키려면 <b>높은 쪽으로 잡는 편이 안전합니다.</b>
+      18%로 보려면 AGX를 끄세요.</p>`;
+  const agp = b.querySelector("#agp"), agxOn = b.querySelector("#agxOn"),
+        agx = b.querySelector("#agx"), sl = b.querySelector("#sl");
+  agp.value = String(COMM.agp);
+  agxOn.checked = COMM.agxOn; agx.value = COMM.agx; agx.disabled = !COMM.agxOn;
+  b.querySelector("#agxVal").textContent = COMM.agxOn ? COMM.agx + "%" : "—";
+  sl.value = String(COMM.sl);
+  agp.onchange = () => { COMM.agp = num(agp.value); recalc(); };
+  agxOn.onchange = () => { COMM.agxOn = agxOn.checked; recalc(); };
+  agx.oninput = () => { COMM.agx = num(agx.value); recalc(); };
+  sl.onchange = () => { COMM.sl = num(sl.value); recalc(); };
+}
+
+/* ── 렌더: 결과 ── */
+function recalc(){
+  const s = sigma(), c = commission(), k = coef();
+  document.getElementById("sigTally").textContent = "Σ " + theorySigma() + "%"
+    + (useMeas ? " · 미사용" : "");
+  document.getElementById("commTally").textContent = c.toFixed(c % 1 ? 1 : 0) + "%";
+  renderPromos();
+
+  const box = document.getElementById("bigBox"),
+        fig = document.getElementById("bigFig"),
+        note = document.getElementById("bigNote"),
+        chain = document.getElementById("chain");
+  const input = num(document.getElementById("tgt").value);
+
+  let cms, payout, cls, noteTxt;
+
+  if (k <= 0){
+    box.className = "big bad";
+    fig.textContent = "계산 불가";
+    note.textContent = "Σ와 보수의 합이 100%를 넘습니다. 프로모션을 줄이세요.";
+    chain.innerHTML = "";
+    document.getElementById("splitBar").innerHTML = "";
+    document.getElementById("splitLegend").innerHTML = "";
+    renderTable(); renderMeas();
+    return;
+  }
+
+  if (mode === "reverse"){
+    const raw = input / k;
+    cms = ceilTo(raw, roundUnit);
+    payout = cms * k;
+    fig.textContent = won(cms);
+    const over = payout - input;
+    noteTxt = `${roundUnit.toLocaleString()}원 올림 · 실제 입금 ${won(payout)}원 (목표 +${won(over)})`;
+    cls = input < FLOOR ? "warn" : "ok";
+    if (input < FLOOR) noteTxt = `목표가 하한 40,000원보다 낮습니다 · ${noteTxt}`;
+  } else {
+    cms = input;
+    payout = cms * k;
+    fig.textContent = won(payout);
+    cls = payout < FLOOR ? "bad" : (payout < FLOOR * 1.05 ? "warn" : "ok");
+    noteTxt = payout < FLOOR
+      ? `하한 40,000원에서 ${won(FLOOR - payout)}원 부족 · CMS ${won(ceilTo(FLOOR/k, roundUnit))}원 필요`
+      : `하한 40,000원 대비 ${won(payout - FLOOR)}원 여유`;
+  }
+  box.className = "big " + cls;
+  note.textContent = noteTxt;
+
+  const pay = cms * (1 - s/100);
+  chain.innerHTML = "";
+  const steps = [
+    ["CMS 설정값", "WINGSCMS에 넣는 금액", won(cms), true],
+    [`프로모션 −${s}%`, "카테고리 규칙대로 합산", "−" + won(cms - pay), false],
+    ["고객 결제", "아고다 '기준 판매 요금'", won(pay), false],
+    ["아고다 표시가", "고객 결제 ÷ 1.1", won(pay/1.1), false],
+    [`아고다 보수 −${c}%`, "계약 + AGP + AGX + 광고", "−" + won(pay - payout), false],
+    ["입금가", "PMS '총 청구 금액'", won(payout), true],
+  ];
+  steps.forEach(([k1,k2,v,hi]) => {
+    const d = document.createElement("div");
+    d.className = "step" + (hi ? " hi" : "");
+    d.innerHTML = `<span class="k"><em></em></span><span class="v mono"></span>`;
+    d.querySelector(".k").prepend(k1);
+    d.querySelector("em").textContent = k2;
+    d.querySelector(".v").textContent = v + "원";
+    chain.appendChild(d);
+  });
+  const kd = document.createElement("div");
+  kd.className = "step";
+  kd.innerHTML = `<span class="k">입금계수</span><span class="v mono">${k.toFixed(4)}</span>`;
+  chain.appendChild(kd);
+
+  // 분배 바
+  const pPromo = s, pComm = (100 - s) * c/100, pNet = 100 - pPromo - pComm;
+  const bar = document.getElementById("splitBar");
+  bar.innerHTML = "";
+  [[pNet,"var(--ok)","입금 "+pNet.toFixed(1)+"%"],
+   [pComm,"var(--brass)","보수 "+pComm.toFixed(1)+"%"],
+   [pPromo,"var(--text-dim)","할인 "+pPromo.toFixed(0)+"%"]].forEach(([w,col,lab])=>{
+    if (w <= 0) return;
+    const el = document.createElement("div");
+    el.className = "seg"; el.style.flex = w; el.style.background = col;
+    el.textContent = w >= 11 ? lab : "";
+    el.title = lab;
+    bar.appendChild(el);
+  });
+  document.getElementById("splitLegend").innerHTML =
+    `<span><i style="background:var(--ok)"></i>우리 입금 ${pNet.toFixed(1)}%</span>
+     <span><i style="background:var(--brass)"></i>아고다 보수 ${pComm.toFixed(1)}%</span>
+     <span><i style="background:var(--text-dim)"></i>손님 할인 ${pPromo.toFixed(0)}%</span>`;
+
+  renderTable();
+  renderMeas();
+}
+
+/* ── 렌더: 요일별 표 ── */
+function renderTable(){
+  const k = coef(), t = document.getElementById("dayTable");
+  document.getElementById("tableTally").textContent =
+    k > 0 ? "입금계수 " + k.toFixed(4) : "";
+  t.querySelector("thead").innerHTML =
+    `<tr><th>요일</th><th>요금세트</th><th>현재 CMS</th><th>지금 입금가</th>
+     <th>목표</th><th>목표용 CMS</th><th>차이</th><th>판정</th></tr>`;
+  const tb = t.querySelector("tbody");
+  tb.innerHTML = "";
+  if (k <= 0) return;
+  DAYS.forEach(r => {
+    const po = r.cms * k;
+    const need = ceilTo(r.tgt / k, roundUnit);
+    const diff = need - r.cms;
+    const cls = po < FLOOR ? "bad" : (po < FLOOR * 1.05 ? "warn" : "ok");
+    const lab = po < FLOOR ? "하한 미달" : (po < FLOOR * 1.05 ? "턱걸이" : "OK");
+    const tr = document.createElement("tr");
+    tr.innerHTML =
+      `<td>${r.d}</td><td class="num">${r.set}</td>
+       <td class="num">${won(r.cms)}</td>
+       <td class="num">${won(po)}</td>
+       <td class="num">${won(r.tgt)}</td>
+       <td class="num"><b>${won(need)}</b></td>
+       <td class="num">${diff === 0 ? "—" : (diff > 0 ? "+" : "") + won(diff)}</td>
+       <td><span class="pill ${cls}">${lab}</span></td>`;
+    tb.appendChild(tr);
+  });
+}
+
+/* ── 프리셋 ── */
+const PRESETS = [
+  ["하한 40,000", 40000], ["일·월 45,000", 45000],
+  ["금 55,000", 55000], ["토 65,000", 65000],
+];
+function renderChips(){
+  const c = document.getElementById("chips");
+  c.innerHTML = "";
+  if (mode === "reverse"){
+    PRESETS.forEach(([lab,v]) => {
+      const b = document.createElement("button");
+      b.textContent = lab;
+      b.onclick = () => { document.getElementById("tgt").value = v.toLocaleString("ko-KR"); recalc(); };
+      c.appendChild(b);
+    });
+  } else {
+    [140000,160000,175000,190000,220000].forEach(v => {
+      const b = document.createElement("button");
+      b.textContent = won(v);
+      b.onclick = () => { document.getElementById("tgt").value = v.toLocaleString("ko-KR"); recalc(); };
+      c.appendChild(b);
+    });
+  }
+  const r = document.createElement("button");
+  r.textContent = "올림 " + roundUnit.toLocaleString() + "원";
+  r.style.marginLeft = "auto";
+  r.style.borderColor = "var(--brass)";
+  r.style.color = "var(--brass)";
+  r.onclick = () => {
+    roundUnit = roundUnit === 5000 ? 1000 : roundUnit === 1000 ? 100 : 5000;
+    renderChips(); recalc();
+  };
+  c.appendChild(r);
+}
+
+/* ── 모드 ── */
+function setMode(m){
+  mode = m;
+  document.getElementById("mRev").setAttribute("aria-pressed", String(m === "reverse"));
+  document.getElementById("mFwd").setAttribute("aria-pressed", String(m === "forward"));
+  document.getElementById("tgtLabel").textContent = m === "reverse" ? "목표 입금가" : "CMS 설정값";
+  document.getElementById("bigCap").textContent = m === "reverse" ? "필요 CMS 설정값" : "예상 입금가";
+  document.getElementById("tgt").value = (m === "reverse" ? 45000 : 160000).toLocaleString("ko-KR");
+  renderChips(); recalc();
+}
+document.getElementById("mRev").onclick = () => setMode("reverse");
+document.getElementById("mFwd").onclick = () => setMode("forward");
+document.getElementById("tgt").addEventListener("input", e => {
+  const v = num(e.target.value);
+  const pos = e.target.selectionStart, before = e.target.value.length;
+  e.target.value = v ? v.toLocaleString("ko-KR") : "";
+  const after = e.target.value.length;
+  try { e.target.setSelectionRange(pos + (after - before), pos + (after - before)); } catch(_){}
+  recalc();
+});
+
+/* ── 렌더: 실측 대조 ── */
+function renderMeas(){
+  const b = document.getElementById("measBody");
+  const t = theorySigma();
+  const rows = MEAS.points.map(([d, cms, org, mega, coup]) => {
+    const real = Math.round(org * 1.1);          // 세금 포함 고객결제 (쿠폰 전)
+    const calc = Math.round(cms * (1 - t / 100));
+    const gap  = real - calc;
+    return `<tr><td>${d}</td><td class="mono">${cms.toLocaleString("ko-KR")}</td>
+      <td class="mono">${calc.toLocaleString("ko-KR")}</td>
+      <td class="mono">${real.toLocaleString("ko-KR")}</td>
+      <td class="mono" style="color:${Math.abs(gap) > real * .005 ? "var(--warn)" : "var(--text-dim)"}">
+        ${gap >= 0 ? "+" : ""}${gap.toLocaleString("ko-KR")}</td></tr>`;
+  }).join("");
+
+  b.innerHTML = `
+    <label style="display:flex;gap:10px;align-items:flex-start;cursor:pointer;margin-bottom:14px">
+      <input type="checkbox" id="measOn" ${useMeas ? "checked" : ""} style="margin-top:3px">
+      <span>Σ를 <b>실측 54.37%</b>로 고정<em style="display:block;font-style:normal;
+        font-size:11px;color:var(--text-faint);margin-top:3px">
+        켜면 위에서 고른 프로모션 대신 실제로 관측된 할인율을 씁니다</em></span>
+    </label>
+    <div class="scroll"><table>
+      <thead><tr><th>날짜</th><th>CMS</th><th>이론 Σ${t}%</th><th>실측</th><th>차이</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>
+    <p style="font-size:11.5px;color:var(--text-faint);line-height:1.65;margin:12px 0 0">
+      ${MEAS.date} · 스탠다드 Room Only · 소비자 페이지와 포털 ARI 캘린더 대조.<br>
+      메가세일 할인액이 <b>(CMS÷1.1)×10%</b>와 원 단위까지 일치 — 아고다 할인은 <b>세전</b>에 붙고
+      기준값은 <b>Room Only 요금</b>입니다.<br>
+      세 점 모두 선형: <span class="mono">원래요금(세전) = 0.458352 × (CMS÷1.1) − 343</span> (오차 ±1원)</p>
+    <p style="font-size:11.5px;color:var(--warn);line-height:1.65;margin:10px 0 0">
+      ⚠ <b>한국 IP에서 본 값입니다.</b> 실측 54.37%는 MG 35 + 메가세일 10 + 얼리버드 10 = 55%와
+      0.63%p 차이 — 즉 <b>International Rate 10%가 안 붙은 상태</b>입니다.
+      외국에서 접속한 손님은 Σ 65%(계수 0.35)일 수 있고, 그러면 입금가가 더 낮습니다.
+      아고다는 접속 국가로 노출가를 정하므로 여기서는 확인 불가 —
+      <b>실제 예약 건의 프로모션 내역으로 판정해야 합니다.</b><br><br>
+      ⚠ <b>쿠폰(AGODA_SPONSORED)</b>이 노출가에서 한 번 더 깎입니다
+      (−9,594 / −12,078 / −14,616). 아고다 부담으로 보이지만 <b>정산서 미확인</b> —
+      우리 부담이면 입금가가 그만큼 더 빠집니다.</p>`;
+
+  document.getElementById("measOn").onchange = e => { useMeas = e.target.checked; recalc(); };
+  document.getElementById("measTally").textContent =
+    useMeas ? "Σ 54.37% 적용 중" : "Σ 54.37%";
+}
+
+renderComm();
+renderChips();
+recalc();
+
+/* ── 채널 전환 ── */
+let CH = "agoda";
+function paintChannel() {
+  const c = CHANNELS[CH];
+  document.getElementById("subline").textContent =
+    `${c.name}${c.propertyId ? " · " + c.propertyId : ""} — 프로모션을 고르고 목표 입금가를 넣으면 CMS 설정값이 나옵니다`;
+  const note = document.getElementById("chNote");
+  if (c.status === "live") {
+    note.innerHTML = "";
+  } else {
+    note.innerHTML = `<div class="call warn"><span class="lbl">${c.name} — 아직 계산 못 합니다</span>
+      CMS 상품 매핑과 요금세트는 확인했지만 <b>커미션 구조와 할인 누적 방식이 미검증</b>입니다.
+      추정으로 숫자를 내면 틀린 답이 나가므로 계산기를 열지 않았습니다.
+      무엇을 확인해야 하는지는 <a href="#status--${c.key}">현재 설정</a>에 정리돼 있습니다.</div>`;
+  }
+}
+function mountTabs() {
+  renderChannelTabs("chtabs-calc", CH, k => { CH = k; mountTabs(); paintChannel(); });
+}
+mountTabs();
+paintChannel();
+})();
+</script>
+<script>
+/* ── 요금표 ── */
+(function(){
+/* ── 채널 블록 ── */
+let CH = "agoda";
+function paintChannel() {
+  const c = CHANNELS[CH];
+  const prod = c.products.length
+    ? `<div class="scroll"><table><thead><tr><th>상품</th><th>요금제 ID</th><th>Room Only 대비</th></tr></thead>
+       <tbody>${c.products.map(p => `<tr><td>${p.name}</td>
+         <td class="mono">${p.id || "—"}</td>
+         <td class="mono">${p.ratio === null ? "미확인" : "× " + p.ratio.toFixed(2)}</td></tr>`).join("")}
+       </tbody></table></div>`
+    : "<p style='padding:16px'>상품 정보 없음</p>";
+
+  const todo = (c.todo || []).length
+    ? `<h3>확인해야 할 것</h3><ul class="todo">${c.todo.map(t => `<li>${t}</li>`).join("")}</ul>`
+    : "";
+
+  document.getElementById("chBody-rates").innerHTML = `
+    <h2>${c.name} ${statusBadge(c.status)}</h2>
+    <p class="sub">${c.cmsGroups.join(" · ")}${c.propertyId ? " · 숙소 ID " + c.propertyId : ""} · ${c.asOf} 조회</p>
+    <div class="tiles">
+      <div class="tile"><div class="k">요금세트</div><div class="v">${c.rateSets.length}</div>
+        <div class="n">${c.rateSets.join(" · ")}</div></div>
+      <div class="tile"><div class="k">상품</div><div class="v">${c.products.length}</div>
+        <div class="n">CMS가 이 채널로 보내는 요금제</div></div>
+      <div class="tile ${c.status === "live" ? "ok" : ""}"><div class="k">보수</div>
+        <div class="v">${c.commission ? c.commission.total + "%" : "미확인"}</div>
+        <div class="n">${c.commission ? c.commission.parts.map(p => p.name + " " + p.cur).join(" + ") : "구조 파악 전"}</div></div>
+      <div class="tile"><div class="k">세금 처리</div>
+        <div class="v">${c.tax ? "× " + c.tax : "미확인"}</div>
+        <div class="n">${c.tax ? "할인은 세전에 붙는다" : "확인 전"}</div></div>
+    </div>
+    ${c.rateSetNote ? `<div class="call"><b>요금세트 메모</b> — ${c.rateSetNote}</div>` : ""}
+    <h3>상품 매핑</h3>
+    <section class="card">${prod}</section>
+    ${todo}`;
+}
+function mountTabs() {
+  renderChannelTabs("chtabs-rates", CH, k => { CH = k; mountTabs(); paintChannel(); }, { allowPlanned: true });
+}
+mountTabs(); paintChannel();
+
+/* ── 객실 표 ── */
+(function () {
+  const rooms = CHANNELS.agoda.rooms;
+  const t = document.getElementById("roomTable");
+  t.querySelector("thead").innerHTML =
+    "<tr><th>객실</th><th>객실 ID</th><th>조식 1인</th><th>조식 2인</th><th>Room Only</th><th>조식1 ÷ RO</th><th>조식2 ÷ RO</th></tr>";
+  t.querySelector("tbody").innerHTML = rooms.map(r => `<tr>
+    <td>${r.name}</td><td class="mono" style="color:var(--text-faint)">${r.id}</td>
+    <td class="mono">${WON(r.bf1)}</td><td class="mono">${WON(r.bf2)}</td>
+    <td class="mono"><b>${WON(r.ro)}</b></td>
+    <td class="mono">${r.bf1 ? (r.bf1 / r.ro).toFixed(2) : "—"}</td>
+    <td class="mono">${(r.bf2 / r.ro).toFixed(2)}</td></tr>`).join("");
+})();
+
+/* ── 요금세트 표 ── */
+(function () {
+  const all = [...new Set(CHANNEL_ORDER.flatMap(k => CHANNELS[k].rateSets))];
+  const t = document.getElementById("setTable");
+  t.querySelector("thead").innerHTML =
+    "<tr><th>세트</th>" + CHANNEL_ORDER.map(k => `<th>${CHANNELS[k].name}</th>`).join("") + "</tr>";
+  t.querySelector("tbody").innerHTML = all.map(sName => {
+    const cells = CHANNEL_ORDER.map(k => {
+      const has = CHANNELS[k].rateSets.includes(sName);
+      return `<td style="text-align:center;color:${has ? "var(--ok)" : "var(--line)"}">${has ? "●" : "·"}</td>`;
+    }).join("");
+    const v = RATE_SET_VALUES[sName];
+    return `<tr><td class="mono"><b>${sName}</b>${v ? ` <span style="color:var(--text-faint);font-weight:400">${WON(v)}</span>` : ""}</td>${cells}</tr>`;
+  }).join("");
+})();
+
+/* ── 채널 비교 ── */
+(function () {
+  const t = document.getElementById("cmpTable");
+  const SETS = ["WEEK", "FRI", "SAT"];
+  const LBL = { WEEK: "WEEK (월~목)", FRI: "FRI (금)", SAT: "SAT (토)" };
+  const keys = Object.keys(CHANNEL_CMS).sort((a, b) => CHANNEL_CMS[a].WEEK - CHANNEL_CMS[b].WEEK);
+  t.querySelector("thead").innerHTML =
+    "<tr><th>채널</th>" + SETS.map(k => `<th>${LBL[k]}</th>`).join("") + "<th>아고다 대비</th></tr>";
+  const base = CHANNEL_CMS.agoda;
+  t.querySelector("tbody").innerHTML = keys.map(k => {
+    const c = CHANNEL_CMS[k], r = c.WEEK / base.WEEK;
+    const isA = k === "agoda";
+    return `<tr${isA ? ' style="background:var(--brass-soft)"' : ""}>
+      <td>${CHANNELS[k].name} ${isA ? "" : statusBadge(CHANNELS[k].status)}</td>
+      ${SETS.map(sk => `<td class="mono">${WON(c[sk])}</td>`).join("")}
+      <td class="mono" style="color:${r < 0.6 ? "var(--bad)" : (r < 0.85 ? "var(--warn)" : "var(--ok)")}">
+        ${(r * 100).toFixed(0)}%</td></tr>`;
+  }).join("");
+})();
+
+/* ── 입금가 환산 ── */
+(function () {
+  const a = CHANNELS.agoda, comm = a.commission.total / 100;
+  const t = document.getElementById("payTable");
+  t.querySelector("thead").innerHTML =
+    "<tr><th>요금세트</th><th>CMS</th><th>Σ65% 입금가</th><th>하한 대비</th><th>Σ54.37% 입금가</th><th>하한 대비</th></tr>";
+  t.querySelector("tbody").innerHTML = Object.entries(RATE_SET_VALUES).map(([k, cms]) => {
+    const cell = sig => {
+      const p = cms * (1 - sig / 100) * (1 - comm);
+      const gap = p - HOTEL.floor;
+      const col = gap < 0 ? "var(--bad)" : (gap < 5000 ? "var(--warn)" : "var(--ok)");
+      return [`<td class="mono">${WON(p)}</td>`,
+              `<td class="mono" style="color:${col}">${gap >= 0 ? "+" : ""}${WON(gap)}</td>`];
+    };
+    const [p65, g65] = cell(65), [p54, g54] = cell(54.37);
+    return `<tr><td class="mono"><b>${k}</b></td><td class="mono">${WON(cms)}</td>${p65}${g65}${p54}${g54}</tr>`;
+  }).join("");
+})();
+})();
+</script>
+<script>
+/* ── 실측 기록 ── */
+(function(){
+(function () {
+  const e = CHANNELS.agoda.bookingEvidence;
+  document.getElementById("evidence").innerHTML = `
+    <div class="tiles">
+      <div class="tile"><div class="k">예약 번호</div><div class="v" style="font-size:16px">${e.id}</div>
+        <div class="n">투숙객 거주 국가 <b>${e.guestCountry}</b></div></div>
+      <div class="tile"><div class="k">리드타임</div><div class="v">${e.leadDays}일</div>
+        <div class="n">${e.booked} 예약 → ${e.stay} 투숙</div></div>
+      <div class="tile"><div class="k">기준 판매 요금</div><div class="v">${WON(e.baseRate)}</div>
+        <div class="n">${e.plan}</div></div>
+    </div>
+    <div class="call ok"><span class="lbl">붙은 프로모션</span>
+      ${e.promos.map(p => `<code class="mono">${p}</code>`).join(" &nbsp;+&nbsp; ")}
+      <br><br>${e.note}</div>`;
+})();
+
+const M = [
+  { d: "10/28 수", cms: 160000, org: 66327, mega: 14545, coup: 9594 },
+  { d: "10/30 금", cms: 190000, org: 78826, mega: 17273, coup: 12078 },
+  { d: "10/31 토", cms: 220000, org: 91328, mega: 20000, coup: 14616 },
+];
+const fill = (id, head, rows) => {
+  const t = document.getElementById(id);
+  t.querySelector("thead").innerHTML = "<tr>" + head.map(h => `<th>${h}</th>`).join("") + "</tr>";
+  t.querySelector("tbody").innerHTML = rows.map(r => "<tr>" + r.join("") + "</tr>").join("");
+};
+
+fill("megaTable",
+  ["날짜", "CMS (세금포함)", "세전 = CMS ÷ 1.1", "메가세일 실측", "예측 = 세전 × 10%", "판정"],
+  M.map(m => {
+    const pre = m.cms / 1.1, pred = pre * 0.10, ok = Math.abs(m.mega - pred) < 1;
+    return [`<td>${m.d}</td>`, `<td class="mono">${WON(m.cms)}</td>`, `<td class="mono">${WON(pre)}</td>`,
+      `<td class="mono"><b>${WON(m.mega)}</b></td>`, `<td class="mono">${WON(pred)}</td>`,
+      `<td style="color:${ok ? "var(--ok)" : "var(--bad)"};font-weight:600">${ok ? "원 단위까지 일치" : "불일치"}</td>`];
+  }));
+
+fill("dispTable",
+  ["날짜", "CMS", "계산기 Σ65%", "실측 노출가", "차이", "실측 Σ"],
+  M.map(m => {
+    const real = Math.round(m.org * 1.1), calc = Math.round(m.cms * 0.35), sig = (1 - real / m.cms) * 100;
+    return [`<td>${m.d}</td>`, `<td class="mono">${WON(m.cms)}</td>`, `<td class="mono">${WON(calc)}</td>`,
+      `<td class="mono"><b>${WON(real)}</b></td>`,
+      `<td class="mono" style="color:var(--warn)">+${WON(real - calc)}</td>`,
+      `<td class="mono">${sig.toFixed(3)}%</td>`];
+  }));
+
+fill("coupTable",
+  ["날짜", "원래 요금(세전)", "쿠폰 할인", "할인율", "표시가", "1박 총액(세금포함)"],
+  M.map(m => {
+    const disp = m.org - m.coup;
+    return [`<td>${m.d}</td>`, `<td class="mono">${WON(m.org)}</td>`,
+      `<td class="mono" style="color:var(--bad)">−${WON(m.coup)}</td>`,
+      `<td class="mono">−${Math.round(m.coup / m.org * 100)}%</td>`,
+      `<td class="mono">${WON(disp)}</td>`, `<td class="mono"><b>${WON(disp * 1.1)}</b></td>`];
+  }));
+})();
+</script>
+<script>
+/* ── 현재 설정 ── */
+(function(){
+let CH = "agoda";
+function paintChannel() {
+  const c = CHANNELS[CH];
+  const todo = (c.todo || []).length
+    ? `<h3>계산기를 열려면 이것부터</h3><ul class="todo">${c.todo.map(t => `<li>${t}</li>`).join("")}</ul>`
+    : `<div class="call ok"><b>검증 완료</b> — 입금가 공식이 실제 예약·정산과 원 단위로 맞습니다.</div>`;
+  document.getElementById("chBody-status").innerHTML = `
+    <h2 id="${c.key}">${c.name} ${statusBadge(c.status)}</h2>
+    <p class="sub">${c.cmsGroups.join(" · ")} · ${c.asOf} 조회</p>
+    <div class="tiles">
+      <div class="tile ${c.sigmaTheory ? "" : ""}"><div class="k">Σ 프로모션</div>
+        <div class="v">${c.sigmaTheory ? c.sigmaTheory + "%" : "미확인"}</div>
+        <div class="n">${c.sigmaMeasured ? "실측 " + c.sigmaMeasured + "% (" + c.measuredNote + ")" : "할인 누적 방식 파악 전"}</div></div>
+      <div class="tile"><div class="k">보수</div>
+        <div class="v">${c.commission ? c.commission.total + "%" : "미확인"}</div>
+        <div class="n">${c.commission ? c.commission.note : "커미션 구조 파악 전"}</div></div>
+      <div class="tile"><div class="k">추가 차감</div>
+        <div class="v" style="font-size:15px">${c.extraDeduction ? c.extraDeduction.range : "미확인"}</div>
+        <div class="n">${c.extraDeduction ? c.extraDeduction.name + " — " + c.extraDeduction.note : "—"}</div></div>
+    </div>
+    ${c.dupRule ? `<div class="call"><b>중복 규칙</b> — ${c.dupRule}</div>` : ""}
+    ${todo}`;
+}
+function mountTabs() {
+  renderChannelTabs("chtabs-status", CH, k => { CH = k; mountTabs(); paintChannel(); }, { allowPlanned: true });
+}
+mountTabs(); paintChannel();
+
+/* 보수 표 */
+(function () {
+  const c = CHANNELS.agoda.commission, t = document.getElementById("commTable");
+  t.querySelector("thead").innerHTML = "<tr><th>항목</th><th>현재</th><th>설정 가능 범위</th></tr>";
+  t.querySelector("tbody").innerHTML =
+    c.parts.map(p => `<tr><td>${p.name}</td><td class="mono"><b>${p.cur}%</b></td>
+      <td style="color:var(--text-dim)">${p.range}</td></tr>`).join("") +
+    `<tr style="background:var(--sunk)"><td><b>합계</b></td><td class="mono"><b>${c.total}%</b></td>
+      <td style="color:var(--warn)">${c.note}</td></tr>`;
+})();
+
+/* 로드맵 */
+(function () {
+  document.getElementById("roadmap").innerHTML = CHANNEL_ORDER.map(k => {
+    const c = CHANNELS[k];
+    const items = (c.todo || []).map(t => `<li>${t}</li>`).join("");
+    return `<h3 style="margin-top:22px">${c.name} ${statusBadge(c.status)}
+        <span style="font-weight:400;color:var(--text-faint);font-size:12px">
+          ${c.cmsGroups.join(" · ")}</span></h3>
+      ${items ? `<ul class="todo">${items}</ul>`
+              : `<p style="color:var(--ok);font-size:13px">확인 완료. 계산기에서 쓸 수 있습니다.</p>`}`;
+  }).join("");
+})();
+})();
+</script>
+
+<script>
+/* ── 페이지 라우터 ── */
+(function () {
+  const tabs = [...document.querySelectorAll(".pgtab")];
+  function show(key, push) {
+    if (!document.getElementById("pg-" + key)) key = "calc";
+    tabs.forEach(t => t.setAttribute("aria-pressed", String(t.dataset.pg === key)));
+    document.querySelectorAll(".page").forEach(p => { p.hidden = p.id !== "pg-" + key; });
+    window.scrollTo(0, 0);
+    if (push) history.replaceState(null, "", "#" + key);
+  }
+  tabs.forEach(t => t.onclick = () => show(t.dataset.pg, true));
+  document.addEventListener("click", e => {
+    const a = e.target.closest('a[href^="#"]');
+    if (!a) return;
+    const key = a.getAttribute("href").slice(1).split("--")[0];
+    if (document.getElementById("pg-" + key)) { e.preventDefault(); show(key, true); }
+  });
+  const initial = (location.hash || "#calc").slice(1).split("--")[0];
+  show(initial, false);
+})();
+</script>
