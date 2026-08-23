@@ -26,24 +26,26 @@ bodies, scripts = [], []
 for key, label, fname in PAGES:
     src = (S / fname).read_text(encoding="utf-8")
 
-    # <body> 안에서 shell.js 로드 뒤 ~ 마지막 <script> 앞까지가 마크업
+    # <body> 안에서 shell.js 로드 뒤 ~ 그 페이지의 첫 <script> 앞까지가 마크업.
+    # 마지막 <script> 를 기준으로 자르면 계산기처럼 스크립트가 둘인 페이지에서
+    # 첫 블록이 마크업에 딸려 들어가 channels.js 보다 먼저 실행돼 버린다.
     after_shell = src.index('<script src="assets/shell.js"></script>') + len('<script src="assets/shell.js"></script>')
-    last_script = src.rindex("<script>")
-    markup = src[after_shell:last_script].strip()
+    first_script = src.index("<script>", after_shell)
+    markup = src[after_shell:first_script].strip()
 
-    # 마지막 <script> 블록이 그 페이지의 로직
-    logic = slice_between(src[last_script:], "<script>", "</script>").strip()
-    if logic.startswith('"use strict";'):
-        logic = logic[len('"use strict";'):].strip()
-
-    # 계산기는 스크립트가 두 개(본체 + 채널 전환) → 둘 다 가져온다
-    if key == "calc":
-        first = src.index("<script>", after_shell)
-        logic = slice_between(src[first:], "<script>", "</script>").strip()
-        if logic.startswith('"use strict";'):
-            logic = logic[len('"use strict";'):].strip()
-        second = src.index("<script>", src.index("</script>", first))
-        logic += "\n\n" + slice_between(src[second:], "<script>", "</script>").strip()
+    # 그 페이지의 인라인 <script> 블록을 나온 순서대로 전부 모은다
+    blocks, pos = [], first_script
+    while True:
+        i = src.find("<script>", pos)
+        if i == -1:
+            break
+        j = src.index("</script>", i)
+        b = src[i + len("<script>"):j].strip()
+        while b.startswith('"use strict";'):
+            b = b[len('"use strict";'):].strip()
+        blocks.append(b)
+        pos = j + len("</script>")
+    logic = "\n\n".join(blocks)
 
     # 마운트 id 충돌 방지
     markup = markup.replace('id="chtabs"', f'id="chtabs-{key}"')

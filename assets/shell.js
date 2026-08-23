@@ -6,9 +6,12 @@
     ["measured.html", "실측 기록"],
     ["status.html",   "현재 설정"],
   ];
-  const here = (location.pathname.split("/").pop() || "index.html");
+  /* Vercel 은 cleanUrls 가 켜져 있어 배포 경로에 .html 이 없다 (/rates).
+     로컬·정적 서버는 /rates.html 이라, 확장자를 떼고 비교해야 양쪽 다 켜진다. */
+  const file = (location.pathname.split("/").pop() || "index.html");
+  const here = file.replace(/\.html$/, "") || "index";
   const nav = PAGES.map(([href, label]) => {
-    const cur = href === here || (here === "" && href === "index.html");
+    const cur = href.replace(/\.html$/, "") === here;
     return `<a href="${href}"${cur ? ' aria-current="page"' : ""}>${label}</a>`;
   }).join("");
 

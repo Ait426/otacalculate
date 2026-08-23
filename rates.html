@@ -166,6 +166,11 @@ mountTabs(); paintChannel();
   t.querySelector("thead").innerHTML =
     "<tr><th>요금세트</th><th>CMS</th><th>Σ65% 입금가</th><th>하한 대비</th><th>Σ54.37% 입금가</th><th>하한 대비</th></tr>";
   t.querySelector("tbody").innerHTML = Object.entries(RATE_SET_VALUES).map(([k, cms]) => {
+    // 값을 아직 못 읽은 세트는 계산하지 않는다. null 을 곱하면 0원으로 나가버린다
+    if (cms === null || cms === undefined)
+      return `<tr><td class="mono"><b>${k}</b></td><td class="mono">—</td>
+        <td class="mono">—</td><td style="color:var(--text-faint)">확인 필요</td>
+        <td class="mono">—</td><td style="color:var(--text-faint)">확인 필요</td></tr>`;
     const cell = sig => {
       const p = cms * (1 - sig / 100) * (1 - comm);
       const gap = p - HOTEL.floor;
